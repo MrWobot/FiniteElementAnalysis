@@ -1,0 +1,38 @@
+﻿namespace FiniteElementAnalysis.Boundaries
+{
+    public enum BoundaryConditionType
+    {
+        OperationSpecific,
+        MaterialBoundary,
+        MeasurementBoundary,
+        FixedTemperatureDirichletBoundary,
+        FixedHeatFluxNeumannBoundary,
+        AdiabaticInsulatedBoundary,
+        ConvectiveOrMixedRobinBoundary,
+        RadiationBoundary,
+        FixedMagneticPotentialDirichletBoundary,
+        FixedMagneticFluxMagneticNeumannBoundary,
+        ConvectiveOrMixedBoundaryConditionMagneticRobinBoundary,
+        PerfectMagneticConductorBoundary,
+        MagneticInsulatedAdiabaticMagneticBoundary,
+        MagneticRadiationBoundary,
+        FixedCurrentBoundary,
+        FixedVoltageDirichletBoundary,
+        FixedMagneticVectorPotentialDirichletBoundary,
+        InfinityBoundary,
+        FreeBoundary,
+        FixedDisplacementDirichletBoundary,
+        PrescribedDisplacementDirichletBoundary,
+        SurfaceTractionNeumannBoundary,
+        PressureNeumannBoundary,
+        ForceNeumannBoundary,
+        BodyForceNeumannBoundary,
+        FixedDisplacementSpecificDirection,
+        FixedNormalForceNeumannBoundary,
+        FixedDirectionalForceNeumannBoundary,
+        FixedPotentialDirichletBoundary,
+        FixedNormalElectricFieldNeumannBoundary,
+        FixedSurfaceChargeDensityNeumannBoundary,
+        FloatingPotentialBoundary
+    }
+}

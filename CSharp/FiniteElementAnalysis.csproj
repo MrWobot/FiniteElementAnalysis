@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Boundaries\DisplacementBoundaryCondition.cs" />
+    <Compile Remove="Boundaries\FixedBoundaryCondition.cs" />
+    <Compile Remove="Boundaries\ForceBoundaryCondition.cs" />
+    <Compile Remove="Boundaries\TemperatureBoundaryCondition.cs" />
+    <Compile Remove="Cuboid.cs" />
+    <Compile Remove="Polyhedrals\Polyhedral.cs" />
+    <Compile Remove="Solvers\MagneticFieldSolver.cs" />
+    <Compile Remove="Solvers\ScalarSolver_New.cs" />
+    <Compile Remove="Solvers\ScalarSolver_Old.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ManagedCuda-CUBLAS" Version="12.4.57" />
+    <PackageReference Include="ScottPlot" Version="5.0.37" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.5" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\shared-public\Core\CSharp\Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="TetgenSharp">
+      <HintPath>..\..\TetgenWrapper\bin\TetgenSharp.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Mesh\Generation\TetgenResources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>TetgenResources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Mesh\Generation\TetgenResources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>TetgenResources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="MeshGeneration\" />
+    <Folder Include="Meshing\" />
+  </ItemGroup>
+</Project>

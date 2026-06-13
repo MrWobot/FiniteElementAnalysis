@@ -1,0 +1,149 @@
+# Alias OBJ Model File
+# Exported from SketchUp, (c) 2000-2012 Trimble Navigation Limited
+# File units = millimeters
+
+mtllib CheckingCurrentDensity.mtl
+
+g Mesh1 Model
+
+usemtl WindingCurrentSecondBoundary
+v 0 20 20
+vt -0.787402 0.787402
+vn -1 0 0
+v 0 0 0
+vt 0 0
+v 0 0 20
+vt 0 0.787402
+f 1/1/1 2/2/1 3/3/1
+
+v 0 20 2.81997e-15
+vt -0.787402 1.11022e-16
+f 2/2/1 1/1/1 4/4/1
+
+usemtl BackColor
+vn 1 -0 -0
+f 3/3/2 2/2/2 1/1/2
+
+usemtl AdiabaticBoundary
+vn 0 -1 0
+v 50 0 20
+vt 1.9685 0.787402
+f 2/2/3 5/5/3 3/3/3
+
+v 50 0 0
+vt 1.9685 0
+f 5/5/3 2/2/3 6/6/3
+
+usemtl BackColor
+vn -0 1 -0
+f 6/6/4 2/2/4 5/5/4
+
+usemtl AdiabaticBoundary
+vn -2.81997e-17 7.04992e-17 -1
+v 50 20 0
+vt -1.9685 0.787402
+vt -1.9685 3.91349e-33
+f 2/2/5 7/7/5 6/8/5
+
+vt 3.13079e-33 0.787402
+f 7/7/5 2/2/5 4/9/5
+
+usemtl BackColor
+vn 2.81997e-17 -7.04992e-17 1
+f 4/9/6 2/2/6 7/7/6
+
+f 4/4/2 1/1/2 2/2/2
+
+usemtl AdiabaticBoundary
+v 50 20 20
+vn 0 1 0
+vt 0 1.11022e-16
+f 8/7/7 4/10/7 1/3/7
+
+vt -1.9685 0
+f 4/10/7 8/7/7 7/11/7
+
+usemtl BackColor
+vn -0 -1 -0
+f 7/11/8 8/7/8 4/10/8
+
+usemtl WindingCurrentFirstBoundary
+vn 1 0 0
+vt 0.787402 0
+vt 0.787402 0.787402
+f 5/3/9 7/12/9 8/13/9
+
+f 7/12/9 5/3/9 6/2/9
+
+usemtl BackColor
+vn -1 -0 -0
+f 6/2/10 5/3/10 7/12/10
+
+f 8/13/10 7/12/10 5/3/10
+
+usemtl AdiabaticBoundary
+vn 0 0 1
+f 1/3/11 5/6/11 8/5/11
+
+f 5/6/11 1/3/11 3/2/11
+
+usemtl BackColor
+vn -0 -0 -1
+f 3/2/12 1/3/12 5/6/12
+
+f 8/5/12 5/6/12 1/3/12
+
+f 1/3/8 4/10/8 8/7/8
+
+f 3/3/4 5/5/4 2/2/4
+
+f 6/8/6 7/7/6 2/2/6
+
+g Mesh2 Model
+
+usemtl WindingVolume
+v 42.6152 9.07212 2.4434
+vt 1.67776 0.35717
+v 39.1944 9.07212 2.4434
+vt 1.54309 0.35717
+v 39.1944 6.16564 2.4434
+vt 1.54309 0.242742
+f 9/14/11 10/15/11 11/16/11
+
+usemtl BackColor
+f 11/16/12 10/15/12 9/14/12
+
+g Mesh3 Model
+
+l 2 3
+
+l 4 2
+
+l 1 4
+
+l 3 1
+
+l 5 3
+
+l 8 5
+
+l 7 8
+
+l 6 7
+
+l 2 6
+
+l 5 6
+
+l 7 4
+
+l 8 1
+
+g Mesh4 Model
+
+l 9 10
+
+l 11 9
+
+l 10 11
+

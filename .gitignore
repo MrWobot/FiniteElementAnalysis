@@ -1,0 +1,14 @@
+**/obj/
+**/bin/
+**/.devcontainer/
+**/.vscode/
+**/.vs/
+BackupProject.exe
+**/*.exe
+**/output/
+**/old/
+**/junk/
+**/*.skb
+SimpleMagneticConductionAnalysis/CORRECT UNITS FOR STATIC MAGNETIC CONDUCTION.webm
+SimpleMagneticConductionAnalysis/Meshes/SimpleMagneticConduction - Copy.skp
+CSharp/FiniteElementAnalysis.csproj.user
