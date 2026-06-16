@@ -1,8 +1,5 @@
 ﻿
 using FiniteElementAnalysis.Boundaries;
-using System;
-using System.Collections.Generic;
-using System.Xml.Linq;
 namespace FiniteElementAnalysis.Polyhedrals
 {
 

@@ -25,6 +25,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\shared-public\Core\CSharp\Core.csproj" />
+    <ProjectReference Include="..\..\Triangle.NET-master\Triangle\Triangle.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="TetgenSharp">
@@ -47,5 +48,6 @@
   <ItemGroup>
     <Folder Include="MeshGeneration\" />
     <Folder Include="Meshing\" />
+    <Folder Include="TriangleNet\" />
   </ItemGroup>
 </Project>

@@ -48,11 +48,11 @@ namespace FiniteElementAnalysis.Plotting
             }
             string strDebug = sbDebug.ToString();
             var firstVectorPoint = vectorAtPoints.First();
-            double minVectorMagnitude = firstVectorPoint.Vector.Magnitude;
+            double minVectorMagnitude = firstVectorPoint.Vector.Magnitude();
             double maxVectorMagnitude = minVectorMagnitude;
             double minX = firstVectorPoint.X, maxX = minX, minY = firstVectorPoint.Y, maxY = minY;
             foreach (VectorAtPoint vectorAtPoint in vectorAtPoints.Skip(1)) {
-                double magnitude = vectorAtPoint.Vector.Magnitude;
+                double magnitude = vectorAtPoint.Vector.Magnitude();
                 if(magnitude<minVectorMagnitude)
                 {
                     minVectorMagnitude = magnitude;

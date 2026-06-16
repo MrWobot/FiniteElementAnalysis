@@ -1,0 +1,100 @@
+﻿
+using Core.Cleanup;
+using Core.Enums;
+using Core.FileSystem;
+using Core.Timing;
+using FiniteElementAnalysis.Boundaries;
+using FiniteElementAnalysis.Boundaries.Thermal;
+using FiniteElementAnalysis.Mesh.Generation;
+using FiniteElementAnalysis.Mesh.Tetrahedral;
+using FiniteElementAnalysis.Polyhedrals;
+using SkiaSharp;
+using TriangleNet;
+using TriangleNet.Meshing.Algorithm;
+
+namespace FiniteElementAnalysis.Setup
+{
+    public class SetupHelper
+    {
+        public static Setup2D Setup2D(
+            byte[] objFileBytes,
+            BoundariesCollection boundaries,
+            VolumesCollection volumes,
+            double maxDistanceNodeMergeMeters = 0.000001,
+            Units units = Units.Meters,
+            string? outputDirectory = null) {
+
+            PlanarDomain domain = ObjFileToPlanar.Read(
+                objFileBytes, volumes, boundaries,
+                out Dictionary<int, Boundary> mapMarkerToBoundary,
+                units, maxDistanceNodeMergeMeters);
+            TemporaryDirectory temporaryDirectory = new TemporaryDirectory();
+            TemporaryWorkingDirectoryManager workingDirectoryManager = new TemporaryWorkingDirectoryManager();
+            if (outputDirectory == null)
+            {
+                string projectDirectory = DirectoryHelper.GetProjectDirectory();
+                outputDirectory = Path.Combine(projectDirectory, "output");
+            }
+            Console.WriteLine($"Output to: \"{outputDirectory}\"");
+            DirectoryHelper.DeleteRecursively(outputDirectory, throwOnError: false);
+            //PolyFileGenerator.Generate(polyFilePath, domain);
+            /*
+            TetrahedralMesh mesh = generateMeshResult.ToMesh(boundaries, volumes, mapMarkerToBoundary);
+            return new Setup2D(outputDirectory!, temporaryDirectory, workingDirectoryManager, mesh);
+            
+            var points = Generate.RandomPoints(50, new Rectangle(0, 0, 100, 100));
+
+            // Choose triangulator: Incremental, SweepLine or Dwyer.
+            var triangulator = new Dwyer();
+
+            // Generate mesh.
+            var mesh = triangulator.Triangulate(points, new Configuration());
+
+            if (print) SvgImage.Save(mesh, "example-1.svg", 500);
+
+            return mesh.Triangles.Count > 0;
+            */
+            return null;
+        }
+        public static Setup3D Setup3D(
+            byte[] objFileBytes,
+            BoundariesCollection boundaries,
+            VolumesCollection volumes,
+            double maxDistanceNodeMergeMeters= 0.000001,
+            Units units = Units.Meters,
+            string? outputDirectory = null)
+        {
+            PolyhedralDomain domain = ObjFileToPoly.Read(
+                objFileBytes, volumes, boundaries,
+                out Dictionary<int, Boundary> mapMarkerToBoundary, units, maxDistanceNodeMergeMeters);
+            TemporaryDirectory temporaryDirectory = new TemporaryDirectory();
+            TemporaryWorkingDirectoryManager workingDirectoryManager = new TemporaryWorkingDirectoryManager();
+            if (outputDirectory == null)
+            {
+                string projectDirectory = DirectoryHelper.GetProjectDirectory();
+                outputDirectory = Path.Combine(projectDirectory, "output");
+            }
+            Console.WriteLine($"Output to: \"{outputDirectory}\"");
+            DirectoryHelper.DeleteRecursively(outputDirectory, throwOnError: false);
+            string polyFilePath = Path.Combine(temporaryDirectory.AbsolutePath, "mesh.poly");
+            PolyFileGenerator.Generate(polyFilePath, domain);
+            using (var tetgen = new Tetgen())
+            {
+                TetgenGenerateMeshResult generateMeshResult = tetgen.GenerateTetrahedralMesh(
+                    polyFilePath,
+                    new TetgenParameters
+                    {
+                        RefineMesh = true,
+                        MaximumTetrahedralVolumeConstraint = maxDistanceNodeMergeMeters,
+                        CheckConsistencyOfFinalMesh = true
+                    });
+                if (generateMeshResult.ExitCode != 0)
+                {
+                    throw new Exception(generateMeshResult.Output);
+                }
+                TetrahedralMesh mesh = generateMeshResult.ToMesh(boundaries, volumes, mapMarkerToBoundary);
+                return new Setup3D(outputDirectory!, temporaryDirectory, workingDirectoryManager, mesh);
+            }
+        }
+    }
+}

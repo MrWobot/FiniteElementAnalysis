@@ -1,17 +1,12 @@
 ﻿
 using Core.FileSystem;
-using FiniteElementAnalysis;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Boundaries.Thermal;
 using FiniteElementAnalysis.Plotting;
 using FiniteElementAnalysis.Polyhedrals;
 using FiniteElementAnalysis.Solvers;
-using System.Reflection;
 using Core.Enums;
 using Core.Timing;
-using Core.Maths;
-using GMRES;
-using System;
 using FiniteElementAnalysis.Fields;
 using InfernoDispatcher;
 using Core.MemoryManagement;
@@ -22,6 +17,7 @@ using FiniteElementAnalysis.CloudCompare;
 using FiniteElementAnalysis.Results;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
 using FiniteElementAnalysis.Mesh.Generation;
+using FiniteElementAnalysis.Setup;
 namespace StaticHeatConductionExperimentation
 {
     // Example usage:
@@ -39,6 +35,48 @@ namespace StaticHeatConductionExperimentation
         }
         private static void BeamWithHeatSource()
         {
+
+            BoundariesCollection boundaries = new BoundariesCollection(
+                new FixedTemperatureDirichletBoundary("Boundary2", temperatureK: 100),
+                new FixedTemperatureDirichletBoundary("Boundary3", 0),
+                new AdiabaticBoundaryInsulated("Boundary1")
+            //new MaterialBoundary("MaterialBoundary")
+            );
+            VolumesCollection volumes = new VolumesCollection(
+               //new StaticHeatVolume("VolumeA", thermalConductivity: 401)
+               new StaticHeatVolume("VolumeB", thermalConductivity: 401)
+            );
+            using (Setup3D setup3D = SetupHelper.Setup3D(
+                MeshesResource.BeamWithHeatSource,
+                boundaries,
+                volumes,
+                maxDistanceNodeMergeMeters: 0.000001,
+                units: Units.Meters))
+            {
+                var mesh = setup3D.Mesh;
+                HeatConductionResult solverResult = new HeatConductionSolver().Solve(mesh, setup3D.WorkingDirectoryManager,
+                    solverMethod: SolverMethod.BlockMatrixInversionGpuOnly);
+                solverResult.Print();
+                ContourPlotHelper.Plot(mesh, 100, setup3D.OutputDirectory, "plot", PlotPlaneType.Z);
+                double valueTFrom = mesh.ElementsBVHTree.QueryBVH(new Core.Maths.Tensors.Vector3D(0.01, 0, 0)).First().NodeA.ScalarValue;
+                double valueMiddle = mesh.ElementsBVHTree.QueryBVH(new Core.Maths.Tensors.Vector3D(0.205, 0, 0)).First().NodeA.ScalarValue;
+                double valueTo = mesh.ElementsBVHTree.QueryBVH(new Core.Maths.Tensors.Vector3D(0.4, 0, 0)).First().NodeA.ScalarValue;
+                string plyFilePath =
+                    Path.Combine(setup3D.OutputDirectory, "temperatures.ply");
+                PlyWriter.WritePlyFile(
+                    plyFilePath,
+                    mesh.Nodes,
+                    mesh.BoundaryFaces,
+                    new ScalarFieldResult(
+                        "temperature",
+                        solverResult.NodalTemperatures
+                    )
+                );
+                CloudCompareHelper.Open(plyFilePath);
+                Tetgen.CopyTetViewToDirectory(setup3D.TemporaryDirectory.AbsolutePath);
+                DirectoryHelper.CopyRecurively(setup3D.TemporaryDirectory.AbsolutePath, setup3D.OutputDirectory);
+            }
+            /*
             BoundariesCollection boundaries = new BoundariesCollection(
                 new FixedTemperatureDirichletBoundary("Boundary2", temperatureK: 100),
                 new FixedTemperatureDirichletBoundary("Boundary3", 0),
@@ -102,7 +140,7 @@ namespace StaticHeatConductionExperimentation
                     Tetgen.CopyTetViewToDirectory(temporaryDirectory.AbsolutePath);
                     DirectoryHelper.CopyRecurively(temporaryDirectory.AbsolutePath, outputDirectory);
                 }
-            }
+            }*/
         }
     }
 }

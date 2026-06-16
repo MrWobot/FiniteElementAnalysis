@@ -56,6 +56,8 @@ namespace MagneticDoubleCone
             string VOLTAGES_FIRST_HALF_PLY_FILE_PATH = Path.Combine(outputDirectory, "coilVoltagsFirstHalf.ply");
             string VOLTAGES_SECOND_HALF_PLY_FILE_PATH = Path.Combine(outputDirectory, "coilVoltagsSecondHalf.ply");
             string VOLTAGES_2_PLY_FILE_PATH = Path.Combine(outputDirectory, "coilVoltags2.ply");
+            
+            
             BoundariesCollection boundaries = new BoundariesCollection(
                 new MultipleOperationBoundary(
                     WINDING_CURRENT_FIRST_BOUNDARY,

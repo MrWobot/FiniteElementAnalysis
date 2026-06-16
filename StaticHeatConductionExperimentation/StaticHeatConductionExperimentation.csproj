@@ -7,7 +7,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\shared-private\GMRES\GMRES.csproj" />
     <ProjectReference Include="..\CSharp\FiniteElementAnalysis.csproj" />
   </ItemGroup>
   <ItemGroup>

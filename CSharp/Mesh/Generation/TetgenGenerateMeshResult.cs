@@ -117,7 +117,8 @@ namespace FiniteElementAnalysis.Mesh.Generation
             boundary = null;
             wasNotMapped = false;
         }
-        public TetrahedralMesh ToMesh(BoundariesCollection boundaries,
+        public TetrahedralMesh ToMesh(
+            BoundariesCollection boundaries,
             VolumesCollection volumes,
             Dictionary<int, Boundary> mapMarkerToBoundary)
         {
