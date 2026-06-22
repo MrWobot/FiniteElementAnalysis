@@ -1,4 +1,6 @@
-﻿using Core.Maths.Tensors;
+﻿using Core.Graphics;
+using Core.Maths.Tensors;
+using System.Drawing;
 using System.Text.RegularExpressions;
 namespace FiniteElementAnalysis.Boundaries
 {
@@ -8,6 +10,7 @@ namespace FiniteElementAnalysis.Boundaries
         public Vector3D[] VolumeMarkerPoints { get; set; }
         public int Region { get; set; }
         public double MaximumTetrahedralVolumeConstraint { get; }
+        public RGBF Color { get; set; } = RGBF.Black();
         protected Volume(string name, double maximumTetrahedralVolumeConstraint) {
             Name = name;
             MaximumTetrahedralVolumeConstraint = maximumTetrahedralVolumeConstraint;

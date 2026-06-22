@@ -1,5 +1,6 @@
 ﻿
 using FiniteElementAnalysis.Boundaries;
+using System.Numerics;
 namespace FiniteElementAnalysis.Polyhedrals
 {
 

@@ -3,13 +3,16 @@ using Core.Maths.Tensors;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Polyhedrals;
 using System.Text;
-using FiniteElementAnalysis.Mesh.Generation.ObjFileToPlanar_Internal;
 using FiniteElementAnalysis.Enums;
 using Core.Collections;
-namespace FiniteElementAnalysis.Mesh.Generation
+using System.Net;
+using FiniteElementAnalysis.Mesh.Tetrahedral;
+using FiniteElementAnalysis.MtlFiles;
+using Core.Graphics;
+namespace FiniteElementAnalysis.Mesh.Generation.Planar
 {
 
-    public static class ObjFileToPlanar
+    public static class PlanarDomainFromObjMtlHelper
     {
 
 
@@ -18,7 +21,7 @@ namespace FiniteElementAnalysis.Mesh.Generation
         // -------------------------------------------------------------------------
 
         public static PlanarDomain Read(
-            byte[] bytes,
+            byte[] objFileBytes,
             VolumesCollection volumes,
             BoundariesCollection boundaries,
             out Dictionary<int, Boundary> mapMarkerToBoundary,
@@ -26,7 +29,7 @@ namespace FiniteElementAnalysis.Mesh.Generation
             double maxDistanceNodeMergeMeters,
             NormalAxis normalAxis = NormalAxis.AutoDetermine)
         {
-            string str = Encoding.ASCII.GetString(bytes);
+            string str = Encoding.ASCII.GetString(objFileBytes);
             string[] lines = str.Split('\n');
 
             // Step 1: Parse raw OBJ into vertices and faces
@@ -50,41 +53,51 @@ namespace FiniteElementAnalysis.Mesh.Generation
             // Step 6: Extract boundary faces (perpendicular to normal axis)
             List<RawFace> boundaryFaces = Step6_ExtractBoundaryFaces(classifiedFaces);
 
-            PlanarDomain domain = new PlanarDomain(boundaries, volumes);
             DelegateProjectVertex projectVertex = Create_ProjectVertex(resolvedAxis);
-            var getReusedPlanarNode = Create_GetReusedPlanarNode(domain, projectVertex, maxDistanceNodeMergeMeters);
-            Create_AddGetNodeToSegmentMappings(out Action<PlanarSegment> addNodeToSegmentMappings,
-                out Func<PlanarNode, PlanarNode, PlanarSegment[]?> getPlanarSegmentsEdgeBelongsTo);
-            var planarSegments = new List<PlanarSegment>();
-            foreach (RawFace volumeFace in volumeFaces) {
+            var getReusedPlanarNode = Create_GetReusedPlanarNode(projectVertex, maxDistanceNodeMergeMeters, out Func<PlanarNode[]> getAllNodes);
+            Create_AddGetNodeToSegmentMappings(out Func<PlanarSegment, bool> addNodeToSegmentMappings,
+                out Func<PlanarNode, PlanarNode, PlanarSegment[]?> getPlanarSegmentsEdgeBelongsTo, out Func<PlanarSegment[]> getAllSegments);
+
+            var mapVolumeNameToVolume = volumes.Entries.ToDictionary(b => b.Name, b => b);
+            foreach (RawFace volumeFace in volumeFaces)
+            {
                 PlanarNode[] planarNodesAscendingIndex = volumeFace.Vertices
-                    .Select(v=>getReusedPlanarNode(v, true)).OrderBy(n=>n.Index).ToArray();
-                var planarSegment = new PlanarSegment(planarNodesAscendingIndex);
-                foreach(var n in planarNodesAscendingIndex) 
-                    n.AddBelongsTo(planarSegment);
-                planarSegments.Add(planarSegment);
-                addNodeToSegmentMappings(planarSegment);
+                    .Select(v => getReusedPlanarNode(v, true)).OrderBy(n => n.Index).ToArray();
+                if (string.IsNullOrEmpty(volumeFace.MaterialName))
+                    continue;
+                if (!mapVolumeNameToVolume.TryGetValue(volumeFace.MaterialName, out Volume? volume))
+                {
+                    continue;
+                }
+                var planarSegment = new PlanarSegment(planarNodesAscendingIndex, volume);
+                if (addNodeToSegmentMappings(planarSegment))
+                {
+                    foreach (var n in planarNodesAscendingIndex)
+                        n.AddBelongsTo(planarSegment);
+                }
             }
             var mapBoundaryNameToBoundary = boundaries.Entries.ToDictionary(b => b.Name, b => b);
             mapMarkerToBoundary = new Dictionary<int, Boundary>();
             var getBoundaryMarker = Create_GetBoundaryMarker(mapMarkerToBoundary);
-            foreach (RawFace boundaryFace in boundaryFaces) {
+            var planarEdges = new List<PlanarEdge>();
+            foreach (RawFace boundaryFace in boundaryFaces)
+            {
 
                 var verticesOnPlaneWithAxis = boundaryFace.Vertices
-                    .Select(v => new { vertex = v, axisCoordinated = Math.Abs(getAxisCoordinate(v)) })
-                    .OrderBy(o => o.axisCoordinated)
+                    .Select(v => new VertexAndAxisCoordinate(v, Math.Abs(getAxisCoordinate(v))))
+                    .OrderBy(o => o.AxisCoordinate)
+                    .Where(o => Math.Abs(nearPlaneCoordinate - o.AxisCoordinate) <= maxDistanceNodeMergeMeters)
                     .Take(2)
                     .ToArray();
-                var tooFarFromPlane = verticesOnPlaneWithAxis
-                    .Where(o => o.axisCoordinated > maxDistanceNodeMergeMeters)
-                    .Select(o => o.vertex);
-                if (tooFarFromPlane.Any()) {
-                    ImplementNiceExceptionThrowHereWithAllThreeVerticesSoWeCanFindInModel();
+                if (verticesOnPlaneWithAxis.Count() < 2)
+                {
+                    continue;
                 }
-                var edgePlanarNodes = verticesOnPlaneWithAxis.Select(o => getReusedPlanarNode(o.vertex, false)).ToArray();
+                var edgePlanarNodes = verticesOnPlaneWithAxis.Select(o => getReusedPlanarNode(o.Vertex, false)).ToArray();
                 if (edgePlanarNodes.Length != 2) throw new Exception("Something went very wrong");
                 PlanarSegment[]? segmentsBelongsTo = getPlanarSegmentsEdgeBelongsTo(edgePlanarNodes[0], edgePlanarNodes[1]);
-                if (segmentsBelongsTo == null|| segmentsBelongsTo.Length>2) {
+                if (segmentsBelongsTo == null || segmentsBelongsTo.Length > 2)
+                {
                     throw new Exception("Something went very wrong");
                 }
                 if (string.IsNullOrEmpty(boundaryFace.MaterialName))
@@ -93,16 +106,19 @@ namespace FiniteElementAnalysis.Mesh.Generation
                 {
                     continue;
                 }
-                domain.Add(new PlanarEdge(domain, getBoundaryMarker(boundary), boundary, segmentsBelongsTo!));
+                planarEdges.Add(new PlanarEdge(edgePlanarNodes[0], edgePlanarNodes[1], getBoundaryMarker(boundary), boundary, segmentsBelongsTo!));
             }
+            PlanarDomain domain = new PlanarDomain(boundaries, volumes, getAllNodes(), getAllSegments(), planarEdges.ToArray());
             return domain;
         }
         private static Func<Boundary, int> Create_GetBoundaryMarker(Dictionary<int, Boundary> mapMarkerToBoundary)
         {
             int nextMarker = 1;
             var mapBoundaryToMarker = new Dictionary<Boundary, int>();
-            return (Boundary boundary) => {
-                if (mapBoundaryToMarker.TryGetValue(boundary, out int marker)) {
+            return (boundary) =>
+            {
+                if (mapBoundaryToMarker.TryGetValue(boundary, out int marker))
+                {
                     return marker;
                 }
                 marker = nextMarker++;
@@ -111,61 +127,77 @@ namespace FiniteElementAnalysis.Mesh.Generation
                 return marker;
             };
         }
-        private static void Create_AddGetNodeToSegmentMappings(out Action<PlanarSegment> add,
-                out Func<PlanarNode, PlanarNode, PlanarSegment[]?> getPlanarSegmentsEdgeBelongsTo) {
+        private static void Create_AddGetNodeToSegmentMappings(out Func<PlanarSegment, bool> add,
+                out Func<PlanarNode, PlanarNode, PlanarSegment[]?> getPlanarSegmentsEdgeBelongsTo,
+                out Func<PlanarSegment[]> getAll)
+        {
 
             var mapNodePairsAscendingIndexToSegments = new DictionaryDictionary<int, int, List<PlanarSegment>>();
-            var _add = (int nodeAIndex, int nodeBIndex, PlanarSegment planarSegment) => {
+            var seenSegments = new DictionaryDictionaryDictionary<int, PlanarSegment>();
+            var _add = (int nodeAIndex, int nodeBIndex, PlanarSegment planarSegment) =>
+            {
 
                 if (mapNodePairsAscendingIndexToSegments.TryGetValue(
                     nodeAIndex, nodeBIndex, out List<PlanarSegment>? planarSegments))
                 {
                     planarSegments!.Add(planarSegment);
+                    return;
                 }
-                else
-                {
-                    mapNodePairsAscendingIndexToSegments.Map(
-                        nodeAIndex, nodeBIndex, new List<PlanarSegment> { planarSegment });
-                }
+                mapNodePairsAscendingIndexToSegments.Map(
+                    nodeAIndex, nodeBIndex, new List<PlanarSegment> { planarSegment });
             };
-            add =  ( PlanarSegment planarSegment) =>
+            add = (planarSegment) =>
             {
+                var nodeIndices = planarSegment.Nodes.Select(n => n.Index).OrderBy(i => i).ToArray();
+                if (seenSegments.ContainsKey(nodeIndices[0], nodeIndices[1], nodeIndices[2]))
+                {
+                    return false;
+                }
+                seenSegments.Map(nodeIndices[0], nodeIndices[1], nodeIndices[2], planarSegment);
                 var nodes = planarSegment.Nodes;
                 _add(nodes[0].Index, nodes[1].Index, planarSegment);
                 _add(nodes[0].Index, nodes[2].Index, planarSegment);
                 _add(nodes[1].Index, nodes[2].Index, planarSegment);
+                return true;
             };
-            getPlanarSegmentsEdgeBelongsTo = (PlanarNode a, PlanarNode b) => {
+            getPlanarSegmentsEdgeBelongsTo = (a, b) =>
+            {
                 int indexSmallest = a.Index;
                 int indexLargest = b.Index;
-                if (a.Index > b.Index) {
+                if (a.Index > b.Index)
+                {
                     indexSmallest = b.Index;
                     indexLargest = a.Index;
                 }
                 mapNodePairsAscendingIndexToSegments.TryGetValue(indexSmallest, indexLargest, out List<PlanarSegment> segments);
                 return segments?.ToArray();
             };
+            getAll = () => seenSegments.GetValues().ToArray();
         }
-        private static Func<RawVertex, bool, PlanarNode> Create_GetReusedPlanarNode(
-            PlanarDomain domain, DelegateProjectVertex projectVertex,
-            double tolerance)
+        private static Func<RawVertex, bool, PlanarNode> Create_GetReusedPlanarNode(DelegateProjectVertex projectVertex,
+            double tolerance,
+            out Func<PlanarNode[]> getAllNodes)
         {
             var pool = new List<PlanarNode>();
             int nextNodeIndex = 0;
-            return (RawVertex rawVertex, bool canCreateNew) => {
+            getAllNodes = () => pool.ToArray();
+            return (RawVertex rawVertex, bool canCreateNew) =>
+            {
 
                 (double a, double b) = projectVertex(rawVertex);
                 PlanarNode? planarNode = pool.FirstOrDefault(n =>
                     Math.Sqrt(Math.Pow(n.X - a, 2) + Math.Pow(n.Y - b, 2)) < tolerance);
-                if (planarNode!=null) {
+                if (planarNode != null)
+                {
                     return planarNode!;
                 }
-                if (!canCreateNew) {
+                if (!canCreateNew)
+                {
                     throw new Exception("Should not be creating a new node here");
                 }
-                planarNode = new PlanarNode(a, b, domain);
+                planarNode = new PlanarNode(a, b);
                 planarNode.Index = nextNodeIndex++;
-                domain.Add(planarNode);
+                pool.Add(planarNode);
                 return planarNode;
             };
         }
@@ -399,16 +431,16 @@ namespace FiniteElementAnalysis.Mesh.Generation
         }
         private static DelegateGetAxisCoordinate Create_GetAxisCoordinate(NormalAxis axis) => axis switch
         {
-            NormalAxis.X => (vertex)=>vertex.X,
+            NormalAxis.X => (vertex) => vertex.X,
             NormalAxis.Y => (vertex) => vertex.Y,
             NormalAxis.Z => (vertex) => vertex.Z,
-            NormalAxis.AutoDetermine=>throw new Exception($"Should not be {nameof(NormalAxis.AutoDetermine)} here because auto determination should yield a direction"),
+            NormalAxis.AutoDetermine => throw new Exception($"Should not be {nameof(NormalAxis.AutoDetermine)} here because auto determination should yield a direction"),
             _ => throw new Exception("Unresolved axis")
         };
 
         private static DelegateProjectVertex Create_ProjectVertex(NormalAxis axis) => axis switch
         {
-            NormalAxis.X => (vertex)=>(vertex.Y, vertex.Z),
+            NormalAxis.X => (vertex) => (vertex.Y, vertex.Z),
             NormalAxis.Y => (vertex) => (vertex.X, vertex.Z),
             NormalAxis.Z => (vertex) => (vertex.X, vertex.Y),
             NormalAxis.AutoDetermine => throw new Exception($"Should not be {nameof(NormalAxis.AutoDetermine)} here because auto determination should yield a direction"),

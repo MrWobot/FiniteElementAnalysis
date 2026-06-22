@@ -1,6 +1,6 @@
 using Core.Maths.Tensors;
 
-namespace FiniteElementAnalysis.Mesh.Generation.ObjFileToPlanar_Internal
+namespace FiniteElementAnalysis.Mesh.Generation.Planar
 {
 
     // A face with a computed normal, classified after Step 2

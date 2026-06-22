@@ -1,4 +1,4 @@
-namespace FiniteElementAnalysis.Mesh.Generation.ObjFileToPlanar_Internal
+namespace FiniteElementAnalysis.Mesh.Generation.Planar
 {
     // A 2D node after projecting out the normal axis
     internal class Node2D

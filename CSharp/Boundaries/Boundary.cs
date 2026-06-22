@@ -1,4 +1,5 @@
 ﻿
+using Core.Graphics;
 using System;
 using System.Collections.Generic;
 namespace FiniteElementAnalysis.Boundaries
@@ -12,6 +13,7 @@ namespace FiniteElementAnalysis.Boundaries
         /// For a boundary on a face between two elements. For most types of boundary this should be false
         /// </summary>
         public bool MultipleElementsAllowed { get; }
+        public RGBF Color { get; set; } = RGBF.Black();
         protected Boundary(BoundaryConditionType type, string name, bool twoElementsAllowed)
         {
             Name = name;

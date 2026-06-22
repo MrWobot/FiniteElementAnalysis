@@ -7,10 +7,10 @@ namespace FiniteElementAnalysis.Polyhedrals
         private List<PlanarSegment>? _SegmentsBelongsTo = null;
         public List<PlanarSegment>? SegmentsBelongsTo { get { return _SegmentsBelongsTo; } }
         public int Index { get; set; }
-        public PlanarNode(double x, double y, PlanarDomain domain)
+        public PlanarNode(double x, double y)
             : base(x, y)
         {
-            domain.Add(this);
+
         }
         public void AddBelongsTo(PlanarSegment segment)
         {

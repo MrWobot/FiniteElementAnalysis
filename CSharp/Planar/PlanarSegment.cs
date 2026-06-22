@@ -1,4 +1,7 @@
-﻿namespace FiniteElementAnalysis.Polyhedrals
+﻿using Core.Graphics;
+using FiniteElementAnalysis.Boundaries;
+
+namespace FiniteElementAnalysis.Polyhedrals
 {
 
     public class PlanarSegment
@@ -14,9 +17,11 @@
                 return _Edge;
             }
         }
-        public PlanarSegment(params PlanarNode[] nodes)
+        public Volume VolumeBelongsTo { get; }
+        public PlanarSegment(PlanarNode[] nodes, Volume volumeBelongsTo)
         {
             Nodes = nodes;
+            VolumeBelongsTo = volumeBelongsTo;
             foreach (PlanarNode node in nodes)
             {
                 node.AddBelongsTo(this);
@@ -24,6 +29,19 @@
         }
         public void SetBelongsTo(PlanarEdge edge) {
             _Edge = edge;
+        }
+        public override bool Equals(object? obj)
+        {
+            if(obj == null) return false;
+            PlanarSegment? other = obj as PlanarSegment;
+            if (other == null) return false;
+            if(Nodes.Length!=other.Nodes.Length) return false;
+            for(int i=0; i< Nodes.Length; i++)
+            {
+                if (Nodes[i].Index==other.Nodes[i].Index) 
+                    return false;
+            }
+            return true;
         }
     }
 }

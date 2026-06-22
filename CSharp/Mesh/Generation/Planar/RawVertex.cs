@@ -1,6 +1,6 @@
 using Core.Maths.Tensors;
 
-namespace FiniteElementAnalysis.Mesh.Generation.ObjFileToPlanar_Internal
+namespace FiniteElementAnalysis.Mesh.Generation.Planar
 {
     internal class RawVertex:Vector3D
     {

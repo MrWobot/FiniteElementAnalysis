@@ -48,6 +48,7 @@ namespace StaticHeatConduction2D
             );
             using (Setup2D setup2D = SetupHelper.Setup2D(
                 File.ReadAllBytes("C:\\repos\\FiniteElementAnalysis\\StaticHeatConduction2D\\Meshes\\ExampleStaticHeatConduction2D.obj"),
+                File.ReadAllBytes("C:\\repos\\FiniteElementAnalysis\\StaticHeatConduction2D\\Meshes\\ExampleStaticHeatConduction2D.mtl"),
                 boundaries,
                 volumes,
                 maxDistanceNodeMergeMeters: 0.000001,

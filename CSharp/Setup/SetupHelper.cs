@@ -6,7 +6,10 @@ using Core.Timing;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Boundaries.Thermal;
 using FiniteElementAnalysis.Mesh.Generation;
+using FiniteElementAnalysis.Mesh.Generation.Planar;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
+using FiniteElementAnalysis.MtlFiles;
+using FiniteElementAnalysis.Planar;
 using FiniteElementAnalysis.Polyhedrals;
 using SkiaSharp;
 using TriangleNet;
@@ -18,16 +21,20 @@ namespace FiniteElementAnalysis.Setup
     {
         public static Setup2D Setup2D(
             byte[] objFileBytes,
+            byte[] mtlFileBytes,
             BoundariesCollection boundaries,
             VolumesCollection volumes,
             double maxDistanceNodeMergeMeters = 0.000001,
             Units units = Units.Meters,
             string? outputDirectory = null) {
 
-            PlanarDomain domain = ObjFileToPlanar.Read(
+            MtlFile mtlFile = MtlFileParser.Read(mtlFileBytes);
+            PlanarDomain domain = PlanarDomainFromObjMtlHelper.Read(
                 objFileBytes, volumes, boundaries,
                 out Dictionary<int, Boundary> mapMarkerToBoundary,
                 units, maxDistanceNodeMergeMeters);
+            domain.ApplyColours(mtlFile);
+            PlanarDomainDrawingHelper.Draw(domain, "D:\\temp\\domain.png");
             TemporaryDirectory temporaryDirectory = new TemporaryDirectory();
             TemporaryWorkingDirectoryManager workingDirectoryManager = new TemporaryWorkingDirectoryManager();
             if (outputDirectory == null)

@@ -1,4 +1,4 @@
-namespace FiniteElementAnalysis.Mesh.Generation.ObjFileToPlanar_Internal
+namespace FiniteElementAnalysis.Mesh.Generation.Planar
 {
     internal class RawFace
     {
