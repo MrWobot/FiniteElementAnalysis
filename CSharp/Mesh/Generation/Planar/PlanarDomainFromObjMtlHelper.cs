@@ -106,11 +106,11 @@ namespace FiniteElementAnalysis.Mesh.Generation.Planar
                 {
                     continue;
                 }
-                planarEdges.Add(new PlanarEdge(edgePlanarNodes[0], edgePlanarNodes[1], getBoundaryMarker(boundary), boundary, segmentsBelongsTo!));
+                planarEdges.Add(new PlanarEdge(edgePlanarNodes[0], edgePlanarNodes[1], boundary, segmentsBelongsTo!));
             }
             PlanarDomain domain = new PlanarDomain(boundaries, volumes, getAllNodes(), getAllSegments(), planarEdges.ToArray());
             return domain;
-        }
+        }/*
         private static Func<Boundary, int> Create_GetBoundaryMarker(Dictionary<int, Boundary> mapMarkerToBoundary)
         {
             int nextMarker = 1;
@@ -126,7 +126,7 @@ namespace FiniteElementAnalysis.Mesh.Generation.Planar
                 mapBoundaryToMarker[boundary] = marker;
                 return marker;
             };
-        }
+        }*/
         private static void Create_AddGetNodeToSegmentMappings(out Func<PlanarSegment, bool> add,
                 out Func<PlanarNode, PlanarNode, PlanarSegment[]?> getPlanarSegmentsEdgeBelongsTo,
                 out Func<PlanarSegment[]> getAll)
@@ -195,8 +195,7 @@ namespace FiniteElementAnalysis.Mesh.Generation.Planar
                 {
                     throw new Exception("Should not be creating a new node here");
                 }
-                planarNode = new PlanarNode(a, b);
-                planarNode.Index = nextNodeIndex++;
+                planarNode = new PlanarNode(a, b, nextNodeIndex++);
                 pool.Add(planarNode);
                 return planarNode;
             };

@@ -71,7 +71,7 @@ namespace FiniteElementAnalysis.Mesh.Generation
             {
                 foreach (Vector3D volumeMarkerPoint in volume.VolumeMarkerPoints)
                 {
-                    sb.Append($"{nRegion++} {volumeMarkerPoint.X} {volumeMarkerPoint.Y} {volumeMarkerPoint.Z} {volume.Region} {volume.MaximumTetrahedralVolumeConstraint}");
+                    sb.Append($"{nRegion++} {volumeMarkerPoint.X} {volumeMarkerPoint.Y} {volumeMarkerPoint.Z} {volume.Region} {volume.MaximumVolumeConstraint}");
                     sb.AppendLine();
                 }
             }

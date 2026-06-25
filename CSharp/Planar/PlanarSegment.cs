@@ -1,5 +1,6 @@
 ﻿using Core.Graphics;
 using FiniteElementAnalysis.Boundaries;
+using System.Numerics;
 
 namespace FiniteElementAnalysis.Polyhedrals
 {
@@ -20,6 +21,7 @@ namespace FiniteElementAnalysis.Polyhedrals
         public Volume VolumeBelongsTo { get; }
         public PlanarSegment(PlanarNode[] nodes, Volume volumeBelongsTo)
         {
+            if (nodes.Length != 3) throw new Exception("Triangles only");
             Nodes = nodes;
             VolumeBelongsTo = volumeBelongsTo;
             foreach (PlanarNode node in nodes)
@@ -43,5 +45,14 @@ namespace FiniteElementAnalysis.Polyhedrals
             }
             return true;
         }
+        public (double, double) Centroid { get {
+                double xSum = 0;
+                double ySum = 0;
+                foreach (var node in Nodes) {
+                    xSum += node.X;
+                    ySum += node.Y;
+                }
+                return (xSum / 3d, ySum / 3d);
+            } }
     }
 }

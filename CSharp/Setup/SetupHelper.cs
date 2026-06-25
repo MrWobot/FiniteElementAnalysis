@@ -10,9 +10,13 @@ using FiniteElementAnalysis.Mesh.Generation.Planar;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
 using FiniteElementAnalysis.MtlFiles;
 using FiniteElementAnalysis.Planar;
+using FiniteElementAnalysis.Ply;
 using FiniteElementAnalysis.Polyhedrals;
 using SkiaSharp;
+using System;
 using TriangleNet;
+using TriangleNet.Geometry;
+using TriangleNet.Meshing;
 using TriangleNet.Meshing.Algorithm;
 
 namespace FiniteElementAnalysis.Setup
@@ -44,6 +48,8 @@ namespace FiniteElementAnalysis.Setup
             }
             Console.WriteLine($"Output to: \"{outputDirectory}\"");
             DirectoryHelper.DeleteRecursively(outputDirectory, throwOnError: false);
+
+
             //PolyFileGenerator.Generate(polyFilePath, domain);
             /*
             TetrahedralMesh mesh = generateMeshResult.ToMesh(boundaries, volumes, mapMarkerToBoundary);
@@ -69,13 +75,15 @@ namespace FiniteElementAnalysis.Setup
             VolumesCollection volumes,
             double maxDistanceNodeMergeMeters= 0.000001,
             Units units = Units.Meters,
+            string temporaryDirectoryPath = "D:\\temp",
             string? outputDirectory = null)
         {
             PolyhedralDomain domain = ObjFileToPoly.Read(
                 objFileBytes, volumes, boundaries,
                 out Dictionary<int, Boundary> mapMarkerToBoundary, units, maxDistanceNodeMergeMeters);
-            TemporaryDirectory temporaryDirectory = new TemporaryDirectory();
-            TemporaryWorkingDirectoryManager workingDirectoryManager = new TemporaryWorkingDirectoryManager();
+            TemporaryDirectory temporaryDirectory = TemporaryDirectory.InCustomTempDirectory(temporaryDirectoryPath);
+            string workingDirectoryPath = Path.Combine(temporaryDirectory.AbsolutePath, "workings");
+            TemporaryWorkingDirectoryManager workingDirectoryManager = new TemporaryWorkingDirectoryManager(workingDirectoryPath);
             if (outputDirectory == null)
             {
                 string projectDirectory = DirectoryHelper.GetProjectDirectory();
@@ -97,9 +105,13 @@ namespace FiniteElementAnalysis.Setup
                     });
                 if (generateMeshResult.ExitCode != 0)
                 {
+                    string moreExceptionInfo = generateMeshResult.GetMoreExceptionInfo();
+                    Console.WriteLine(moreExceptionInfo);
                     throw new Exception(generateMeshResult.Output);
                 }
                 TetrahedralMesh mesh = generateMeshResult.ToMesh(boundaries, volumes, mapMarkerToBoundary);
+                string meshPlyFilePath = Path.Combine(outputDirectory, "mesh.ply");
+                PlyWriter.Write(meshPlyFilePath, mesh);
                 return new Setup3D(outputDirectory!, temporaryDirectory, workingDirectoryManager, mesh);
             }
         }

@@ -14,7 +14,7 @@ namespace FiniteElementAnalysis.Polyhedrals
         private HashSet<PlanarNode> _Nodes;
         public HashSet<PlanarNode> Nodes { get { return _Nodes; } }
         private HashSet<PlanarEdge> _Edges = new HashSet<PlanarEdge>();
-        public HashSet<PlanarEdge> Edges { get { return _Edges; } }
+        public HashSet<PlanarEdge> BoundaryEdges { get { return _Edges; } }
         public PlanarSegment[] Segments { get; }
         public BoundariesCollection Boundaries { get; }
         public VolumesCollection Volumes { get; }

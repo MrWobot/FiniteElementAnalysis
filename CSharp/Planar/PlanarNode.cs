@@ -6,11 +6,11 @@ namespace FiniteElementAnalysis.Polyhedrals
     {
         private List<PlanarSegment>? _SegmentsBelongsTo = null;
         public List<PlanarSegment>? SegmentsBelongsTo { get { return _SegmentsBelongsTo; } }
-        public int Index { get; set; }
-        public PlanarNode(double x, double y)
+        public int Index { get; }
+        public PlanarNode(double x, double y, int index)
             : base(x, y)
         {
-
+            Index = index;
         }
         public void AddBelongsTo(PlanarSegment segment)
         {

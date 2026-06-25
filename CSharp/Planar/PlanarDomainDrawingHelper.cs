@@ -37,7 +37,7 @@ namespace FiniteElementAnalysis.Planar
                 var node3 = nodeVectorToImageCoordinate(segment.Nodes[2]);
                 FillTriangle(image, node1.X, node1.Y, node2.X, node2.Y, node3.X, node3.Y, ToRGBA32(segment.VolumeBelongsTo.Color));
             }
-            foreach (var edge in domain.Edges) {
+            foreach (var edge in domain.BoundaryEdges) {
                 if (edge.Boundary == null) continue;
                 var node1 = nodeVectorToImageCoordinate(edge.Node1);
                 var node2 = nodeVectorToImageCoordinate(edge.Node2);
