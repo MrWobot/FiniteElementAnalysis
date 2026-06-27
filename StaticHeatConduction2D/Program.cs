@@ -1,22 +1,11 @@
 ﻿
-using Core.FileSystem;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Boundaries.Thermal;
-using FiniteElementAnalysis.Plotting;
-using FiniteElementAnalysis.Polyhedrals;
-using FiniteElementAnalysis.Solvers;
 using Core.Enums;
-using Core.Timing;
-using FiniteElementAnalysis.Fields;
 using InfernoDispatcher;
 using Core.MemoryManagement;
 using Shutdown;
 using Logging;
-using FiniteElementAnalysis.Ply;
-using FiniteElementAnalysis.CloudCompare;
-using FiniteElementAnalysis.Results;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh.Generation;
 using FiniteElementAnalysis.Setup;
 namespace StaticHeatConduction2D
 {
@@ -51,7 +40,7 @@ namespace StaticHeatConduction2D
                 File.ReadAllBytes("C:\\repos\\FiniteElementAnalysis\\StaticHeatConduction2D\\Meshes\\ExampleStaticHeatConduction2D.mtl"),
                 boundaries,
                 volumes,
-                maxDistanceNodeMergeMeters: 0.000001,
+                toleranceMeters: 0.000001,
                 units: Units.Meters))
             {
                 /*

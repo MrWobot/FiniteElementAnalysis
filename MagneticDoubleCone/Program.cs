@@ -1,7 +1,6 @@
 ﻿using Core.FileSystem;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.MeshGeneration;
-using FiniteElementAnalysis.Polyhedrals;
 using FiniteElementAnalysis;
 using FiniteElementAnalysis.Solvers;
 using Core.Enums;
@@ -15,11 +14,17 @@ using FiniteElementAnalysis.Ply;
 using FiniteElementAnalysis.CloudCompare;
 using Core.Maths.Tensors;
 using FiniteElementAnalysis.Boundaries.Magnetic;
-using FiniteElementAnalysis.Results;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh.Generation;
 using System.Reflection;
 using Core.ThisSystem;
+using FiniteElementAnalysis.Mesh.Tetgen;
+using FiniteElementAnalysis.Mesh.Refinement.Tetgen;
+using FiniteElementAnalysis.Mesh.Parsing.Tetgen;
+using FiniteElementAnalysis.Mesh.Parsing.Tetrahedral;
+using FiniteElementAnalysis.Mesh.Polyhedral;
+using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
+using FiniteElementAnalysis.Solvers.ThreeD;
+using FiniteElementAnalysis.Results.ThreeD;
 
 namespace MagneticDoubleCone
 {
@@ -153,7 +158,7 @@ namespace MagneticDoubleCone
 
             string exeDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly()!.Location)!;
             string objFilePath = Path.Combine(DirectoryHelper.GetProjectDirectory(), "Meshes\\Model.obj");
-            PolyhedralDomain domain = ObjFileToPoly.Read(
+            PolyhedralDomain domain = PolyhedralDomainFromObjHelper.Read(
                 //File.ReadAllBytes("C:\\repos\\snippets\\CircuitAnalysis\\VoltageMultiplier\\Meshes\\TestWindings.obj")
                 File.ReadAllBytes(objFilePath), volumes, boundaries,
                 out Dictionary<int, Boundary> mapMarkerToBoundary, Units.Millimeters,
@@ -168,7 +173,7 @@ namespace MagneticDoubleCone
                     Console.WriteLine($"Output to: \"{outputDirectory}\"");
                     DirectoryHelper.DeleteRecursively(outputDirectory, throwOnError: false);
                     string polyFilePath = Path.Combine(temporaryDirectory.AbsolutePath, "mesh.poly");
-                    PolyFileGenerator.Generate(polyFilePath, domain);
+                    PolyFileFromPolyhedralDomainHelper.Generate(polyFilePath, domain);
                     Tetgen.CopyTetViewToDirectory(temporaryDirectory.AbsolutePath);
                     using (Tetgen tetgen = new Tetgen())
                     {
@@ -191,10 +196,10 @@ namespace MagneticDoubleCone
                         string meshPlyFilePath = Path.Combine(outputDirectory, "mesh.ply");
                         PlyWriter.Write(meshPlyFilePath, mesh); 
                         var volumeElements = mesh.Elements.GroupBy(e => e.VolumeName).Select(g => g.ToArray()).ToArray();
-                        StaticCurrentConductionSolver staticCurrentSolver = new StaticCurrentConductionSolver();
+                        StaticCurrentConductionSolver3D staticCurrentSolver = new StaticCurrentConductionSolver3D();
                         TetrahedralMesh firstHalfWindingMesh = mesh.ToOperationSpecificMesh(
                             OPERATION_WINDING_CURRENT_FIRST_HALF);
-                        StaticCurrentConductionResult firstHalfWindingStaticCurrentSolverResult
+                        StaticCurrentConductionResult3D firstHalfWindingStaticCurrentSolverResult
                          = staticCurrentSolver.Solve(
                             firstHalfWindingMesh,
                             workingDirectoryManager,
@@ -213,7 +218,7 @@ namespace MagneticDoubleCone
                         );
                         TetrahedralMesh secondHalfWindingMesh = mesh.ToOperationSpecificMesh(
                             OPERATION_WINDING_CURRENT_SECOND_HALF);
-                        StaticCurrentConductionResult secondHalfWindingStaticCurrentSolverResult
+                        StaticCurrentConductionResult3D secondHalfWindingStaticCurrentSolverResult
                          = staticCurrentSolver.Solve(
                             secondHalfWindingMesh,
                             workingDirectoryManager,
@@ -267,7 +272,7 @@ namespace MagneticDoubleCone
                             secondHalfWindingStaticCurrentSolverResult.GetNodalVolumeCurrentDensities("volume_current_density")
                         );
                         //CloudCompareHelper.Open(CURRENT_DENSITIES_PLY_FILE_PATH);
-                        var staticMagneticConductionSolver = new StaticMagneticConductionSolver();
+                        var staticMagneticConductionSolver = new StaticMagneticConductionSolver3D();
                         var magneticFieldMesh = mesh.ToOperationSpecificMesh(OPERATION_MAGNETIC_FIELD);
                         var magneticFieldResult = staticMagneticConductionSolver.Solve(
                             magneticFieldMesh,

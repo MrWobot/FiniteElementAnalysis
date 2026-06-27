@@ -14,11 +14,11 @@ using Shutdown;
 using Logging;
 using FiniteElementAnalysis.Ply;
 using FiniteElementAnalysis.CloudCompare;
-using FiniteElementAnalysis.Results;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh.Generation;
 using FiniteElementAnalysis.Setup;
 using FiniteElementAnalysis.Boundaries.Electrostatic;
+using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
+using FiniteElementAnalysis.Results.ThreeD;
 namespace ElectrostaticsExample
 {
     // Example usage:
@@ -36,22 +36,24 @@ namespace ElectrostaticsExample
             BoundariesCollection boundaries = new BoundariesCollection(
                 new FixedPotentialDirichletBoundary("Boundary2", 160000),
                 new FixedPotentialDirichletBoundary("Boundary3", 0),
-                new AdiabaticBoundaryInsulated("Boundary1")
+                new AdiabaticBoundaryInsulated("Boundary1"),
                 //,
-                //new MaterialBoundary("MaterialBoundary")
+                new MaterialBoundary("MaterialBoundary")
             );
             VolumesCollection volumes = new VolumesCollection(
-               ElectrostaticsVolume.ForRelativePermittivity("VolumeA", relativePermittivity:1.0006d , maximumTetrahedralVolumeConstraint:1e-10)
+               ElectrostaticsVolume.ForRelativePermittivity("VolumeA", relativePermittivity:1.0006d , maximumTetrahedralVolumeConstraint:1e-9),
+               ElectrostaticsVolume.ForRelativePermittivity("VolumeB", relativePermittivity: 1.0006d, maximumTetrahedralVolumeConstraint: 1e-11)
             );
             using (Setup3D setup3D = SetupHelper.Setup3D(
                 File.ReadAllBytes("C:\\repos\\FiniteElementAnalysis\\ElectrostaticsExample\\Meshes\\SharpPointedElectrode.obj"),
                 boundaries,
                 volumes,
-                maxDistanceNodeMergeMeters: 0.0000001,
+                maxDistanceNodeMergeMeters: 0.00000000001,
+                globalMaximumTetrahedralVolumeConstraintMeters:1e-5,
                 units: Units.Millimeters))
             {
                 var mesh = setup3D.Mesh;
-                ElectrostaticsResult solverResult = new ElectrostaticsSolver()
+                ElectrostaticsResult3D solverResult = new ElectrostaticsSolver()
                     .Solve(mesh, setup3D.WorkingDirectoryManager,
                     solverMethod: SolverMethod.BlockMatrixInversionGpuOnly);
                 solverResult.Print();

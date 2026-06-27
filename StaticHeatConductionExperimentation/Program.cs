@@ -14,10 +14,10 @@ using Shutdown;
 using Logging;
 using FiniteElementAnalysis.Ply;
 using FiniteElementAnalysis.CloudCompare;
-using FiniteElementAnalysis.Results;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh.Generation;
 using FiniteElementAnalysis.Setup;
+using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
+using FiniteElementAnalysis.Results.ThreeD;
 namespace StaticHeatConductionExperimentation
 {
     // Example usage:
@@ -54,7 +54,7 @@ namespace StaticHeatConductionExperimentation
                 units: Units.Meters))
             {
                 var mesh = setup3D.Mesh;
-                HeatConductionResult solverResult = new HeatConductionSolver().Solve(mesh, setup3D.WorkingDirectoryManager,
+                HeatConductionResult3D solverResult = new HeatConductionSolver().Solve(mesh, setup3D.WorkingDirectoryManager,
                     solverMethod: SolverMethod.BlockMatrixInversionGpuOnly);
                 solverResult.Print();
                 ContourPlotHelper.Plot(mesh, 100, setup3D.OutputDirectory, "plot", PlotPlaneType.Z);

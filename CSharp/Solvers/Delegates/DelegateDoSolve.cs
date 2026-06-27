@@ -1,4 +1,5 @@
 ﻿using Core.Maths.Matrices;
+using FiniteElementAnalysis.Results;
 using MathNet.Numerics.Statistics;
 using System.Text;
 

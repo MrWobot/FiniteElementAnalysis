@@ -1,23 +1,16 @@
 ﻿
-using Core.Cleanup;
 using Core.Enums;
 using Core.FileSystem;
-using Core.Timing;
 using FiniteElementAnalysis.Boundaries;
-using FiniteElementAnalysis.Boundaries.Thermal;
-using FiniteElementAnalysis.Mesh.Generation;
-using FiniteElementAnalysis.Mesh.Generation.Planar;
+using FiniteElementAnalysis.Mesh.Parsing.MtlFiles;
+using FiniteElementAnalysis.Mesh.Parsing.Planar;
+using FiniteElementAnalysis.Mesh.Parsing.Tetrahedral;
+using FiniteElementAnalysis.Mesh.Planar;
+using FiniteElementAnalysis.Mesh.Polyhedral;
+using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
+using FiniteElementAnalysis.Mesh.Refinement.Triangular;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.MtlFiles;
-using FiniteElementAnalysis.Planar;
 using FiniteElementAnalysis.Ply;
-using FiniteElementAnalysis.Polyhedrals;
-using SkiaSharp;
-using System;
-using TriangleNet;
-using TriangleNet.Geometry;
-using TriangleNet.Meshing;
-using TriangleNet.Meshing.Algorithm;
 
 namespace FiniteElementAnalysis.Setup
 {
@@ -28,57 +21,53 @@ namespace FiniteElementAnalysis.Setup
             byte[] mtlFileBytes,
             BoundariesCollection boundaries,
             VolumesCollection volumes,
-            double maxDistanceNodeMergeMeters = 0.000001,
+            double toleranceMeters = 0.001,
             Units units = Units.Meters,
+            string temporaryDirectoryPath = "D:\\temp",
             string? outputDirectory = null) {
 
             MtlFile mtlFile = MtlFileParser.Read(mtlFileBytes);
             PlanarDomain domain = PlanarDomainFromObjMtlHelper.Read(
                 objFileBytes, volumes, boundaries,
                 out Dictionary<int, Boundary> mapMarkerToBoundary,
-                units, maxDistanceNodeMergeMeters);
+                units, toleranceMeters);
             domain.ApplyColours(mtlFile);
-            PlanarDomainDrawingHelper.Draw(domain, "D:\\temp\\domain.png");
-            TemporaryDirectory temporaryDirectory = new TemporaryDirectory();
-            TemporaryWorkingDirectoryManager workingDirectoryManager = new TemporaryWorkingDirectoryManager();
             if (outputDirectory == null)
             {
                 string projectDirectory = DirectoryHelper.GetProjectDirectory();
                 outputDirectory = Path.Combine(projectDirectory, "output");
             }
-            Console.WriteLine($"Output to: \"{outputDirectory}\"");
             DirectoryHelper.DeleteRecursively(outputDirectory, throwOnError: false);
+            Directory.CreateDirectory(outputDirectory);
+            PlanarDomainDrawingHelper.Draw(domain, 
+                Path.Combine(outputDirectory, "domain.png"));
+            PlanarDomainDrawingHelper.Draw(domain, 
+                Path.Combine(outputDirectory, "domainShowingAllTriangles.png"),
+                showAllTriangles:true);
+            TemporaryDirectory temporaryDirectory = TemporaryDirectory.InCustomTempDirectory(temporaryDirectoryPath);
+            string workingDirectoryPath = Path.Combine(temporaryDirectory.AbsolutePath, "workings");
+            TemporaryWorkingDirectoryManager workingDirectoryManager = new TemporaryWorkingDirectoryManager(workingDirectoryPath);
+            Console.WriteLine($"Output directory: \"{outputDirectory}\"");
+            Console.WriteLine($"Temporary directory: \"{temporaryDirectory.AbsolutePath}\"");
+            Console.WriteLine($"Temporary working directory: \"{workingDirectoryManager.DirectoryPath}\"");
 
-
-            //PolyFileGenerator.Generate(polyFilePath, domain);
-            /*
-            TetrahedralMesh mesh = generateMeshResult.ToMesh(boundaries, volumes, mapMarkerToBoundary);
-            return new Setup2D(outputDirectory!, temporaryDirectory, workingDirectoryManager, mesh);
-            
-            var points = Generate.RandomPoints(50, new Rectangle(0, 0, 100, 100));
-
-            // Choose triangulator: Incremental, SweepLine or Dwyer.
-            var triangulator = new Dwyer();
-
-            // Generate mesh.
-            var mesh = triangulator.Triangulate(points, new Configuration());
-
-            if (print) SvgImage.Save(mesh, "example-1.svg", 500);
-
-            return mesh.Triangles.Count > 0;
-            */
-            return null;
+            domain = MeshRefinementHelper2D.Refine(domain, globalMaximumArea:1e-6);
+            PlanarDomainDrawingHelper.Draw(domain, Path.Combine(outputDirectory, "domainRefined.png"));
+            PlanarDomainDrawingHelper.Draw(domain, Path.Combine(outputDirectory, "domainRefinedShowingAllTriangles.png"),
+                showAllTriangles:true);
+            return new Setup2D(outputDirectory, temporaryDirectory, workingDirectoryManager, domain);
         }
         public static Setup3D Setup3D(
             byte[] objFileBytes,
             BoundariesCollection boundaries,
             VolumesCollection volumes,
-            double maxDistanceNodeMergeMeters= 0.000001,
+            double maxDistanceNodeMergeMeters,
+            double globalMaximumTetrahedralVolumeConstraintMeters,
             Units units = Units.Meters,
             string temporaryDirectoryPath = "D:\\temp",
             string? outputDirectory = null)
         {
-            PolyhedralDomain domain = ObjFileToPoly.Read(
+            PolyhedralDomain domain = PolyhedralDomainFromObjHelper.Read(
                 objFileBytes, volumes, boundaries,
                 out Dictionary<int, Boundary> mapMarkerToBoundary, units, maxDistanceNodeMergeMeters);
             TemporaryDirectory temporaryDirectory = TemporaryDirectory.InCustomTempDirectory(temporaryDirectoryPath);
@@ -89,31 +78,24 @@ namespace FiniteElementAnalysis.Setup
                 string projectDirectory = DirectoryHelper.GetProjectDirectory();
                 outputDirectory = Path.Combine(projectDirectory, "output");
             }
-            Console.WriteLine($"Output to: \"{outputDirectory}\"");
             DirectoryHelper.DeleteRecursively(outputDirectory, throwOnError: false);
-            string polyFilePath = Path.Combine(temporaryDirectory.AbsolutePath, "mesh.poly");
-            PolyFileGenerator.Generate(polyFilePath, domain);
-            using (var tetgen = new Tetgen())
-            {
-                TetgenGenerateMeshResult generateMeshResult = tetgen.GenerateTetrahedralMesh(
-                    polyFilePath,
-                    new TetgenParameters
-                    {
-                        RefineMesh = true,
-                        MaximumTetrahedralVolumeConstraint = maxDistanceNodeMergeMeters,
-                        CheckConsistencyOfFinalMesh = true
-                    });
-                if (generateMeshResult.ExitCode != 0)
+            Console.WriteLine($"Output directory: \"{outputDirectory}\"");
+            Console.WriteLine($"Temporary directory: \"{temporaryDirectory.AbsolutePath}\"");
+            Console.WriteLine($"Temporary working directory: \"{workingDirectoryManager.DirectoryPath}\"");
+            TetgenGenerateMeshResult generateMeshResult = Tetgen.GenerateTetrahedralMesh(
+                domain,
+                new TetgenParameters
                 {
-                    string moreExceptionInfo = generateMeshResult.GetMoreExceptionInfo();
-                    Console.WriteLine(moreExceptionInfo);
-                    throw new Exception(generateMeshResult.Output);
-                }
-                TetrahedralMesh mesh = generateMeshResult.ToMesh(boundaries, volumes, mapMarkerToBoundary);
-                string meshPlyFilePath = Path.Combine(outputDirectory, "mesh.ply");
-                PlyWriter.Write(meshPlyFilePath, mesh);
-                return new Setup3D(outputDirectory!, temporaryDirectory, workingDirectoryManager, mesh);
-            }
+                    RefineMesh = true,
+                    MaximumTetrahedralVolumeConstraint = globalMaximumTetrahedralVolumeConstraintMeters,
+                    CheckConsistencyOfFinalMesh = true
+                },
+                temporaryDirectory);
+            generateMeshResult.ThrowIfErrors();
+            TetrahedralMesh mesh = generateMeshResult.ToMesh(boundaries, volumes, mapMarkerToBoundary);
+            string meshPlyFilePath = Path.Combine(outputDirectory, "mesh.ply");
+            PlyWriter.Write(meshPlyFilePath, mesh);
+            return new Setup3D(outputDirectory!, temporaryDirectory, workingDirectoryManager, mesh);
         }
     }
 }

@@ -1,12 +1,9 @@
 ﻿
 using Core.Geometry;
 using Core.Maths.Tensors;
-using Core.Trees;
-using FiniteElementAnalysis.Polyhedrals;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using System.Text;
 namespace FiniteElementAnalysis.Plotting

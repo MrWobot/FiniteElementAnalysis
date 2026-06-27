@@ -1,12 +1,5 @@
 ﻿
-using Core.Geometry;
-using Core.Maths.Tensors;
-using Core.Trees;
-using FiniteElementAnalysis.Polyhedrals;
 using SixLabors.ImageSharp.PixelFormats;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
 namespace FiniteElementAnalysis.Plotting
 {
     public class ColorMap

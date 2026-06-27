@@ -2,6 +2,7 @@
 using Core.Cleanup;
 using Core.FileSystem;
 using Core.Timing;
+using FiniteElementAnalysis.Mesh.Planar;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
 namespace FiniteElementAnalysis.Setup
 {
@@ -10,7 +11,7 @@ namespace FiniteElementAnalysis.Setup
         public string OutputDirectory { get; }
         public TemporaryDirectory TemporaryDirectory { get; }
         public TemporaryWorkingDirectoryManager WorkingDirectoryManager { get; }
-        public TetrahedralMesh Mesh { get; }
+        public PlanarDomain Domain { get; }
         public long StartTime{ get; }
         public long TimeTaken { 
             get
@@ -22,12 +23,12 @@ namespace FiniteElementAnalysis.Setup
             string outputDirectory,
             TemporaryDirectory temporaryDirectory,
             TemporaryWorkingDirectoryManager workingDirectoryManager,
-            TetrahedralMesh mesh)
+            PlanarDomain domain)
         {
             OutputDirectory = outputDirectory;
             TemporaryDirectory = temporaryDirectory;
             WorkingDirectoryManager = workingDirectoryManager;
-            Mesh = mesh;
+            Domain = domain;
             StartTime = TimeHelper.MillisecondsNow;
         }
         public void Dispose() { 

@@ -1,9 +1,7 @@
 ﻿using Core.FileSystem;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.MeshGeneration;
-using FiniteElementAnalysis.Polyhedrals;
 using FiniteElementAnalysis;
-using FiniteElementAnalysis.Solvers;
 using Core.Enums;
 using FiniteElementAnalysis.Fields;
 using InfernoDispatcher;
@@ -13,9 +11,15 @@ using Logging;
 using FiniteElementAnalysis.Ply;
 using FiniteElementAnalysis.CloudCompare;
 using SimpleCurrentDensityExample;
-using FiniteElementAnalysis.Results;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh.Generation;
+using FiniteElementAnalysis.Mesh.Tetgen;
+using FiniteElementAnalysis.Mesh.Refinement.Tetgen;
+using FiniteElementAnalysis.Mesh.Parsing.Tetgen;
+using FiniteElementAnalysis.Mesh.Parsing.Tetrahedral;
+using FiniteElementAnalysis.Mesh.Polyhedral;
+using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
+using FiniteElementAnalysis.Solvers.ThreeD;
+using FiniteElementAnalysis.Results.ThreeD;
 
 namespace VoltageMultiplier
 {
@@ -68,7 +72,7 @@ namespace VoltageMultiplier
                     maximumTetrahedralVolumeConstraint: windingMaximumTetrahedralVolumeConstraint
                 )
             );
-            PolyhedralDomain domain = ObjFileToPoly.Read(
+            PolyhedralDomain domain = PolyhedralDomainFromObjHelper.Read(
                 //File.ReadAllBytes("C:\\repos\\snippets\\CircuitAnalysis\\VoltageMultiplier\\Meshes\\TestWindings.obj")
                 File.ReadAllBytes("C:\\repos\\snippets\\CircuitAnalysis\\SimpleCurrentDensityExample\\Meshes\\CheckingCurrentDensity.obj"), volumes, boundaries,
                 out Dictionary<int, Boundary> mapMarkerToBoundary, Units.Millimeters,
@@ -84,7 +88,7 @@ namespace VoltageMultiplier
                     Console.WriteLine($"Output to: \"{outputDirectory}\"");
                     DirectoryHelper.DeleteRecursively(outputDirectory, throwOnError: false);
                     string polyFilePath = Path.Combine(temporaryDirectory.AbsolutePath, "mesh.poly");
-                    PolyFileGenerator.Generate(polyFilePath, domain);
+                    PolyFileFromPolyhedralDomainHelper.Generate(polyFilePath, domain);
                     Tetgen.CopyTetViewToDirectory(temporaryDirectory.AbsolutePath);
                     using (Tetgen tetgen = new Tetgen())
                     {
@@ -104,11 +108,11 @@ namespace VoltageMultiplier
                         }
                         TetrahedralMesh mesh = generateMeshResult.ToMesh(boundaries, volumes, mapMarkerToBoundary);
                         var volumeElements = mesh.Elements.GroupBy(e => e.VolumeName).Select(g => g.ToArray()).ToArray();
-                        StaticCurrentConductionSolver staticCurrentSolver = new StaticCurrentConductionSolver();
+                        StaticCurrentConductionSolver3D staticCurrentSolver = new StaticCurrentConductionSolver3D();
                         TetrahedralMesh firstHalfWindingMesh = mesh.ToOperationSpecificMesh(
                             OPERATION_WINDING_CURRENT);
 
-                        StaticCurrentConductionResult firstHalfWindingResult
+                        StaticCurrentConductionResult3D firstHalfWindingResult
                          = staticCurrentSolver.Solve(
                             firstHalfWindingMesh,
                             workingDirectoryManager,

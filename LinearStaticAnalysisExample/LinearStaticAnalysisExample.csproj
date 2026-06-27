@@ -11,4 +11,17 @@
   <ItemGroup>
     <ProjectReference Include="..\CSharp\FiniteElementAnalysis.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Update="MeshResources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>MeshResources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="MeshResources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>MeshResources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

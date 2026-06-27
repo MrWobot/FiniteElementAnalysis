@@ -1,7 +1,4 @@
-﻿using FiniteElementAnalysis.Polyhedrals;
-using System.Text;
-
-namespace FiniteElementAnalysis.MeshGeneration
+﻿namespace FiniteElementAnalysis.MeshGeneration
 {
     public static class Conductivities
     {
