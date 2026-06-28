@@ -1,34 +1,31 @@
 ﻿using Core.Maths;
-using Core.Maths.Tensors;
 using Core.Maths.Vectors;
 using FiniteElementAnalysis.Fields;
-using FiniteElementAnalysis.Interpolation;
-using FiniteElementAnalysis.Mesh;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
+using FiniteElementAnalysis.Mesh.Interfaces;
 
 namespace FiniteElementAnalysis.Results.ThreeD
 {
-    public class ElectrostaticsResult3D : ScalarResultBase3D
+    public class ElectrostaticsResult3D : ScalarResultBase
     {
         public double[] Potentials => CoreResult.UnknownsVector;
-        public ElectrostaticsResult3D(TetrahedralMesh mesh, CoreSolverResult coreResult) : base(mesh, coreResult)
+        public ElectrostaticsResult3D(IMesh mesh, CoreSolverResult coreResult) : base(mesh, coreResult)
         {
 
         }
         public double[] GetNodalScalarElectricFieldIntensities()
         {
-            var mapElementToElectricFieldStrength = new Dictionary<TetrahedronElement, double[]>();
+            var mapElementToElectricFieldStrength = new Dictionary<IElement, double[]>();
             foreach (var element in _ResultMesh.Elements)
             {
                 double[][] elementBMatrix = element.GetBMatrix(1, FieldOperationType.Gradient, 1);
-                double[] E = VectorHelper.Scale(MatrixHelper.MatrixMultiplyByVector(elementBMatrix, element.Nodes.Select(n => Potentials[_ResultMesh.MapNodeIdentifierToGlobalIndex[n.Identifier]]).ToArray()), -1);
+                double[] E = VectorHelper.Scale(MatrixHelper.MatrixMultiplyByVector(elementBMatrix, element.Nodes.Select(n => Potentials[_ResultMesh.MapNodeIndexToGlobalIndex[n.Index]]).ToArray()), -1);
                 mapElementToElectricFieldStrength[element] = E;
 
             }
             double[] nodeEs = new double[_ResultMesh.Nodes.Length];
             foreach (var node in _ResultMesh.Nodes)
             {
-                List<TetrahedronElement> elements = _ResultMesh.MapNodeToElementsBelongsTo[node.Identifier];
+                List<IElement> elements = _ResultMesh.MapNodeToElementsBelongsTo[node.Index];
                 double[] sum = new double[3];
                 foreach (var element in elements)
                 {
@@ -39,7 +36,7 @@ namespace FiniteElementAnalysis.Results.ThreeD
                 }
                 double[] nodeE = new double[] { sum[0] / elements.Count, sum[1] / elements.Count, sum[2] / elements.Count };
                 double scalarNodeE = Math.Sqrt(Math.Pow(nodeE[0], 2) + Math.Pow(nodeE[1], 2) + Math.Pow(nodeE[2], 2));
-                nodeEs[_ResultMesh.MapNodeIdentifierToGlobalIndex[node.Identifier]] = scalarNodeE;
+                nodeEs[_ResultMesh.MapNodeIndexToGlobalIndex[node.Index]] = scalarNodeE;
 
             }
             return nodeEs;

@@ -196,7 +196,7 @@ namespace MagneticDoubleCone
                         string meshPlyFilePath = Path.Combine(outputDirectory, "mesh.ply");
                         PlyWriter.Write(meshPlyFilePath, mesh); 
                         var volumeElements = mesh.Elements.GroupBy(e => e.VolumeName).Select(g => g.ToArray()).ToArray();
-                        StaticCurrentConductionSolver3D staticCurrentSolver = new StaticCurrentConductionSolver3D();
+                        StaticCurrentConductionSolver staticCurrentSolver = new StaticCurrentConductionSolver();
                         TetrahedralMesh firstHalfWindingMesh = mesh.ToOperationSpecificMesh(
                             OPERATION_WINDING_CURRENT_FIRST_HALF);
                         StaticCurrentConductionResult3D firstHalfWindingStaticCurrentSolverResult
@@ -272,7 +272,7 @@ namespace MagneticDoubleCone
                             secondHalfWindingStaticCurrentSolverResult.GetNodalVolumeCurrentDensities("volume_current_density")
                         );
                         //CloudCompareHelper.Open(CURRENT_DENSITIES_PLY_FILE_PATH);
-                        var staticMagneticConductionSolver = new StaticMagneticConductionSolver3D();
+                        var staticMagneticConductionSolver = new StaticMagneticConductionSolver();
                         var magneticFieldMesh = mesh.ToOperationSpecificMesh(OPERATION_MAGNETIC_FIELD);
                         var magneticFieldResult = staticMagneticConductionSolver.Solve(
                             magneticFieldMesh,

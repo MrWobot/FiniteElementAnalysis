@@ -30,7 +30,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             get
             {
 
-                return Nodes.Select(n => n.Identifier).OrderBy(i => i).ToArray();
+                return Nodes.Select(n => n.Index).OrderBy(i => i).ToArray();
             }
         }
     }

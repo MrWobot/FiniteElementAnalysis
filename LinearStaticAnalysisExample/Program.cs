@@ -11,8 +11,8 @@ using FiniteElementAnalysis.Mesh.Tetrahedral;
 using FiniteElementAnalysis.Boundaries.Statics;
 using FiniteElementAnalysis.Setup;
 using LinearStaticAnalysisExample;
-using FiniteElementAnalysis.Solvers.ThreeD;
 using FiniteElementAnalysis.Results.ThreeD;
+using FiniteElementAnalysis.Solvers;
 
 namespace LienarStaticAnalysisExample
 {
@@ -48,7 +48,7 @@ namespace LienarStaticAnalysisExample
                 globalMaximumTetrahedralVolumeConstraintMeters: 1e-5,
                 units: Units.Millimeters
             );
-            LinearStaticAnalysisSolver3D solver = new LinearStaticAnalysisSolver3D();
+            LinearStaticAnalysisSolver solver = new LinearStaticAnalysisSolver();
             LinearStaticAnalysisResult3D result
                          = solver.Solve(
                             setup3D.Mesh,

@@ -5,24 +5,24 @@ using FiniteElementAnalysis.Fields;
 using FiniteElementAnalysis.SourceRegions;
 using Core.FileSystem;
 using Core.Pool;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh;
 using Core.Maths.Matrices;
 using FiniteElementAnalysis.Results.ThreeD;
 using FiniteElementAnalysis.Results;
+using FiniteElementAnalysis.Solvers.Bases;
+using FiniteElementAnalysis.Mesh.Interfaces;
 
-namespace FiniteElementAnalysis.Solvers.ThreeD
+namespace FiniteElementAnalysis.Solvers
 {
     /// <summary>
     /// RHS vector = current NOT current density
     /// Unknowns = voltage
     /// </summary>
-    public class StaticCurrentConductionSolver3D : ScalarSolver3D<StaticCurrentConductionResult3D>
+    public class StaticCurrentConductionSolver : ScalarSolver<StaticCurrentConductionResult3D>
     {
-        public StaticCurrentConductionSolver3D() : base(FieldOperationType.Gradient)
+        public StaticCurrentConductionSolver() : base(FieldOperationType.Gradient)
         {
         }
-        public override StaticCurrentConductionResult3D Solve(TetrahedralMesh mesh, WorkingDirectoryManager workingDirectoryManager, string operationIdentifier = "default", DelegateApplySourceRegion[]? applySourceRegion_s = null, SolverMethod solverMethod = SolverMethod.BlockMatrixInversionGpuOnly, CompositeProgressHandler? progressHandler = null, FileCachedItem<CoreSolverResult>? cachedSolverResult = null, bool useCachedSolverResults = false)
+        public override StaticCurrentConductionResult3D Solve(IMesh mesh, WorkingDirectoryManager workingDirectoryManager, string operationIdentifier = "default", DelegateApplySourceRegion[]? applySourceRegion_s = null, SolverMethod solverMethod = SolverMethod.BlockMatrixInversionGpuOnly, CompositeProgressHandler? progressHandler = null, FileCachedItem<CoreSolverResult>? cachedSolverResult = null, bool useCachedSolverResults = false)
         {
             CoreSolverResult basicResult = _Solve(mesh, workingDirectoryManager, operationIdentifier, applySourceRegion_s, solverMethod, progressHandler, cachedSolverResult, useCachedSolverResults);
             return new StaticCurrentConductionResult3D(mesh, basicResult);
@@ -32,7 +32,7 @@ namespace FiniteElementAnalysis.Solvers.ThreeD
         {
             return ((StaticCurrentVolume)volume).Conductivity;
         }
-        protected override void ApplyBoundaryToGlobal(Boundary boundary, TetrahedralMesh mesh,
+        protected override void ApplyBoundaryToGlobal(Boundary boundary, IMesh mesh,
             IBigMatrix K, double[] rhs, string operationIdentifier)
         {
             switch (boundary.BoundaryConditionType)
@@ -56,9 +56,9 @@ namespace FiniteElementAnalysis.Solvers.ThreeD
             }
         }
         private static void ApplyFixedCurrentBoundary(
-    FixedCurrentBoundary boundary, TetrahedralMesh mesh, IBigMatrix K, double[] rhs, string operationIdentifier)
+    FixedCurrentBoundary boundary, IMesh mesh, IBigMatrix K, double[] rhs, string operationIdentifier)
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
             // Get the faces on the boundary where the current is to be applied
             BoundaryFace[]? faces = mesh.GetFacesForBoundary(boundary);
             if (faces == null) return;
@@ -92,7 +92,7 @@ namespace FiniteElementAnalysis.Solvers.ThreeD
 
                 foreach (Node faceNode in face.Nodes)
                 {
-                    int globalIndex = mapNodeToGlobalIndex[faceNode.Identifier];
+                    int globalIndex = mapNodeToGlobalIndex[faceNode.Index];
 
                     // Each node gets 1/3 of the total current for the face
                     double nodalCurrentContribution = currentDensity * area / 3.0;

@@ -4,24 +4,27 @@ using Core.Maths.Tensors;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Fields;
 using FiniteElementAnalysis.Integration;
-using System.Xml.Linq;
+using FiniteElementAnalysis.Mesh.Interfaces;
 
 namespace FiniteElementAnalysis.Mesh.Tetrahedral
 {
 
-    public class TetrahedronElement
+    public class TetrahedronElement:IElement
     {
-        public int Identifier { get; }
-        public Node[] Nodes { get; }
-        public Node NodeA { get { return Nodes[0]; } }
-        public Node NodeB { get { return Nodes[1]; } }
-        public Node NodeC { get { return Nodes[2]; } }
-        public Node NodeD { get { return Nodes[3]; } }
+        public int Index { get; }
+        public INode[] Nodes { get; }
+        public Volume VolumeBelongsTo { get; }
+
+        public double Measure => ElementVolume;
+        public Node NodeA { get { return (Node)Nodes[0]; } }
+        public Node NodeB { get { return (Node)Nodes[1]; } }
+        public Node NodeC { get { return (Node)Nodes[2]; } }
+        public Node NodeD { get { return (Node)Nodes[3]; } }
         public Node[] NodesOrderedByIdentifiers
         {
             get
             {
-                return Nodes.OrderBy(n => n.Identifier).ToArray();
+                return Nodes.OrderBy(n => n.Index).Cast<Node>() .ToArray();
             }
         }
         public int[] NodeIdentifiersLowToHigh
@@ -29,7 +32,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             get
             {
 
-                return Nodes.Select(n => n.Identifier).OrderBy(i => i).ToArray();
+                return Nodes.Select(n => n.Index).OrderBy(i => i).ToArray();
             }
         }
         public double ElementVolume
@@ -39,12 +42,12 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return TetrahedronHelper.AbsoluteVolume(NodeA, NodeB, NodeC, NodeD);
             }
         }
-        public string? VolumeName { get { return VolumeIsAPartOf?.Name; } }
+        public string? VolumeName { get { return VolumeBelongsTo?.Name; } }
         public int[][] CombinationsOfThreeNodesIdentifiersAscending
         {
             get
             {
-                int[] identifiers = Nodes.OrderBy(n => n.Identifier).Select(n => n.Identifier).ToArray();
+                int[] identifiers = Nodes.OrderBy(n => n.Index).Select(n => n.Index).ToArray();
                 return new int[][] {
                     new int[] { identifiers[0], identifiers[1], identifiers[2] },
                     new int[] { identifiers[0], identifiers[1], identifiers[3]  },
@@ -68,13 +71,8 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return Nodes.SelectMany(n => n.Values!).ToArray();
             }
         }
-        public Volume? VolumeIsAPartOf
-        {
-            get;
-            set;
-        }
-        public bool HasVolumeIsAPartOf { get { return VolumeIsAPartOf != null; } }
-        private double[][] _ShapeFunctions;
+        public bool HasVolumeIsAPartOf { get { return VolumeBelongsTo != null; } }
+        private double[][]? _ShapeFunctions;
         public double[][] ShapeFunctions
         {
             get
@@ -128,8 +126,9 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return N;
             }
         }
+        #region BMatrices
 
-        private double[][] _ScalarBMatrix;
+        private double[][]? _ScalarBMatrix;
         public double[][] ScalarBMatrix
         {
             get
@@ -142,7 +141,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _ScalarBMatrix;
             }
         }
-        private double[][] _ScalarBMatrixTranspose;
+        private double[][]? _ScalarBMatrixTranspose;
         public double[][] ScalarBMatrixTranspose
         {
             get
@@ -166,7 +165,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _ScalarInverseBTBMatrix;
             }
         }*/
-        private double[][] _BMatrix3DOF3FieldComponentsUsingGradients;
+        private double[][]? _BMatrix3DOF3FieldComponentsUsingGradients;
         public double[][] BMatrix3DOF3FieldComponentsUsingGradients
         {
             get
@@ -179,7 +178,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _BMatrix3DOF3FieldComponentsUsingGradients;
             }
         }
-        private double[][] _BMatrix3DOF3FieldComponentsUsingGradientsTranspose;
+        private double[][]? _BMatrix3DOF3FieldComponentsUsingGradientsTranspose;
         public double[][] BMatrix3DOF3FieldComponentsUsingGradientsTranspose
         {
             get
@@ -192,7 +191,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _BMatrix3DOF3FieldComponentsUsingGradientsTranspose;
             }
         }
-        private double[][] _BMatrix3DOF3FieldComponentsUsingCurl;
+        private double[][]? _BMatrix3DOF3FieldComponentsUsingCurl;
         public double[][] BMatrix3DOF3FieldComponentsUsingCurl
         {
             get
@@ -207,7 +206,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             }
         }
 
-        private double[][] _BMatrix3DOF3FieldComponentsUsingCurlTranspose;
+        private double[][]? _BMatrix3DOF3FieldComponentsUsingCurlTranspose;
         public double[][] BMatrix3DOF3FieldComponentsUsingCurlTranspose
         {
             get
@@ -223,7 +222,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         }
 
 
-        private double[][] _BMatrix3DOF6FieldComponentsUsingGradients;
+        private double[][]? _BMatrix3DOF6FieldComponentsUsingGradients;
         public double[][] BMatrix3DOF6FieldComponentsUsingGradients
         {
             get
@@ -236,7 +235,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _BMatrix3DOF6FieldComponentsUsingGradients;
             }
         }
-        private double[][] _BMatrix3DOF6FieldComponentsUsingGradientsTranspose;
+        private double[][]? _BMatrix3DOF6FieldComponentsUsingGradientsTranspose;
         public double[][] BMatrix3DOF6FieldComponentsUsingGradientsTranspose
         {
             get
@@ -249,7 +248,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             }
         }
 
-        private double[][] _BMatrix3DOF9FieldComponentsUsingGradients;
+        private double[][]? _BMatrix3DOF9FieldComponentsUsingGradients;
         public double[][] BMatrix3DOF9FieldComponentsUsingGradients
         {
             get
@@ -262,7 +261,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _BMatrix3DOF9FieldComponentsUsingGradients;
             }
         }
-        private double[][] _BMatrix3DOF9FieldComponentsUsingGradientsTranspose;
+        private double[][]? _BMatrix3DOF9FieldComponentsUsingGradientsTranspose;
         public double[][] BMatrix3DOF9FieldComponentsUsingGradientsTranspose
         {
             get
@@ -275,7 +274,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             }
         }
 
-        private double[][] _BMatrix3DOF6FieldComponentsStrainDisplacement;
+        private double[][]? _BMatrix3DOF6FieldComponentsStrainDisplacement;
         public double[][] BMatrix3DOF6FieldComponentsStrainDisplacement
         {
             get
@@ -288,7 +287,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _BMatrix3DOF6FieldComponentsStrainDisplacement;
             }
         }
-        private double[][] _BMatrix3DOF6FieldComponentsStrainDisplacementTranspose;
+        private double[][]? _BMatrix3DOF6FieldComponentsStrainDisplacementTranspose;
         public double[][] BMatrix3DOF6FieldComponentsStrainDisplacementTranspose
         {
             get
@@ -301,8 +300,10 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _BMatrix3DOF6FieldComponentsStrainDisplacementTranspose;
             }
         }
+        #endregion BMatrices
+
         // Property to hold integration points
-        private List<IntegrationPoint> _IntegrationPoints;
+        private List<IntegrationPoint>? _IntegrationPoints;
         public List<IntegrationPoint> IntegrationPoints
         {
             get
@@ -319,6 +320,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _IntegrationPoints;
             }
         }
+        /*
         private TriangleElementFace[]? _Faces;
         public TriangleElementFace[] Faces { 
             get {
@@ -328,20 +330,17 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 }
                 return _Faces;
             } 
-        }
+        }*/
 
         private double? _SignedVolumeMe;
-        public TetrahedronElement(int identifier, Node[] nodes, Volume volume) : this(identifier, nodes)
+        public TetrahedronElement(int index, Node[] nodes, Volume volume)
         {
-            VolumeIsAPartOf = volume;
-        }
-        public TetrahedronElement(int identifier, Node[] nodes)
-        {
-            if (identifier < 0) throw new ArgumentException($"identifier cannot be less than zero. Received value {identifier}");
+            if (index < 0) throw new ArgumentException($"index cannot be less than zero. Received value {index}");
             if (nodes.Length != 4)
                 throw new ArgumentException($"Expected four nodes. Received {nodes.Length}");
-            Identifier = identifier;
+            Index = index;
             Nodes = nodes;
+            VolumeBelongsTo = volume;
         }
         private Cuboid3D? _BoundingCuboid;
         public Cuboid3D BoundingCuboid
@@ -359,8 +358,9 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                     double maxZ = NodeA.Z;
 
                     // Check the other nodes to find the minimum and maximum extents
-                    foreach (var node in Nodes.Skip(1))
+                    foreach (var iNode in Nodes.Skip(1))
                     {
+                        Node node = (Node)iNode;
                         if (node.X < minX) minX = node.X;
                         if (node.Y < minY) minY = node.Y;
                         if (node.Z < minZ) minZ = node.Z;
@@ -382,6 +382,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _BoundingCuboid;
             }
         }
+
         public Vector3D GetCentroid()
         {
             double x = (NodeA.X + NodeB.X + NodeC.X + NodeD.X) / 4.0;
@@ -443,7 +444,6 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         public double[] InterpolateValueAtPoint(Vector3D point, int nDegreesFreedom)
         {
             if (!IsPointInside(point)) throw new Exception("Point was not inside");
-            double v = 0.0;
             double[] values = new double[nDegreesFreedom];
             double[] shapeFunctionsAtPoint = ComputeShapeFunctionsAtPoint(point);
             for (int dof = 0; dof < nDegreesFreedom; dof++)
@@ -572,9 +572,10 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             }
             throw new NotImplementedException($"{nameof(GetBMatrixTranspose)} not implemented for {nameof(FieldOperationType)} {Enum.GetName(typeof(FieldOperationType), fieldOperationType)} with {nDegreesOfFreedom} degrees of freedom and {nFieldComponents} field components");
         }
+        /*
         public TriangleElementFace GetFaceOppositeNode(int nodeIdentifier)
         {
-            Node[] nodesOfFace = Nodes.Where(n=>n.Identifier!=nodeIdentifier).ToArray();
+            Node[] nodesOfFace = Nodes.Where(n=>n.Index!=nodeIdentifier).Cast<Node>().ToArray();
             if (nodesOfFace.Length != 3)
             {
                 throw new Exception("Something went very wrong. Likely node does not belong to element");
@@ -586,16 +587,16 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 face.ReverseNodes();
             }
             return face;
-        }
+        }*//*
         private TriangleElementFace[] CreateTetrahedronFaces()
         {
             List<TriangleElementFace> faces = new List<TriangleElementFace>();
-
+            Node[] nodes = Nodes.Cast<Node>().ToArray();
             // Define faces with initial right-hand rule ordering
-            faces.Add(new TriangleElementFace(Nodes[0], Nodes[1], Nodes[2], this));
-            faces.Add(new TriangleElementFace(Nodes[0], Nodes[1], Nodes[3], this));
-            faces.Add(new TriangleElementFace(Nodes[0], Nodes[2], Nodes[3], this));
-            faces.Add(new TriangleElementFace(Nodes[1], Nodes[2], Nodes[3], this));
+            faces.Add(new TriangleElementFace(nodes[0], nodes[1], nodes[2], this));
+            faces.Add(new TriangleElementFace(nodes[0], nodes[1], nodes[3], this));
+            faces.Add(new TriangleElementFace(nodes[0], nodes[2], nodes[3], this));
+            faces.Add(new TriangleElementFace(nodes[1], nodes[2], nodes[3], this));
 
             // Ensure each face normal points outward
             foreach(TriangleElementFace face in faces)
@@ -611,8 +612,8 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 }
             }
             return faces.ToArray();
-        }
-
+        }*/
+        /*
         public double GetEffectivePerpendicularArea(Vector3D direction)
         {
             // Normalize the magnetic flux density vector to get its direction
@@ -642,16 +643,16 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             projectedAreas.Sort((a, b) => b.projectedArea.CompareTo(a.projectedArea));
             double effectivePerpendicularArea = projectedAreas.Take(2).Sum(pa => pa.projectedArea);
             return effectivePerpendicularArea;
-        }
+        }*/
         public override bool Equals(object? obj)
         {
             return obj is TetrahedronElement element &&
-                   Identifier == element.Identifier;
+                   Index == element.Index;
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Identifier);
+            return HashCode.Combine(Index);
         }
     }
 }

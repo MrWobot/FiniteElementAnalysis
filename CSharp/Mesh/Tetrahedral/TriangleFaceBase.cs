@@ -6,6 +6,14 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
 
     public class TriangleFaceBase : FaceBase
     {
+        public TetrahedronElement[] Elements { get; private set; }
+        public void AddElement(TetrahedronElement element)
+        {
+            var oldElements = Elements;
+            Elements = new TetrahedronElement[oldElements.Length + 1];
+            Array.Copy(oldElements, Elements, oldElements.Length);
+            Elements[oldElements.Length] = element;
+        }
         public Node NodeA { get { return Nodes[0]; } }
         public Node NodeB { get { return Nodes[1]; } }
         public Node NodeC { get { return Nodes[2]; } }
@@ -34,9 +42,9 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return GeometryHelper.TriangleArea(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z);
             }
         }
-        public TriangleFaceBase(Node[] nodes) : base(nodes)
+        public TriangleFaceBase(Node[] nodes, TetrahedronElement[] elements) : base(nodes)
         {
-
+            Elements = elements;
         }
     }
 }

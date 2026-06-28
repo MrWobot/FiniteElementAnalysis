@@ -1,24 +1,23 @@
 ﻿using Core.Maths.Tensors;
 using FiniteElementAnalysis.Boundaries;
-namespace FiniteElementAnalysis.Mesh
+using FiniteElementAnalysis.Mesh.Interfaces;
+namespace FiniteElementAnalysis.Mesh.Tetrahedral
 {
 
-    public class Node : Vector3D
+    public class Node : Vector3D, INode
     {
-        public int Identifier { get; }
+        public int Index{ get; }
         private double[]? _Attributes;
         public double[] Attributes { get { return _Attributes!; } }
-        public Boundary? Boundary { get; }
-
         public override bool Equals(object? obj)
         {
             return obj is Node node &&
-                   Identifier == node.Identifier;
+                   Index == node.Index;
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Identifier);
+            return HashCode.Combine(Index);
         }
         public double[]? Values { get; set; }
         public double ScalarValue
@@ -30,13 +29,14 @@ namespace FiniteElementAnalysis.Mesh
                 return Values[0];
             }
         }
-        public object Element { get; set; }
-        public Node(int identifier, double x, double y, double z, double[]? attributes, Boundary? outerBoundary)
+
+        public double[] Position => new double[] { X, Y, Z };
+
+        public Node(int index, double x, double y, double z, double[]? attributes)
             : base(x, y, z)
         {
-            Identifier = identifier;
+            Index = index;
             _Attributes = attributes;
-            Boundary = outerBoundary;
         }
     }
 }

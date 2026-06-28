@@ -7,17 +7,17 @@ using Core.FileSystem;
 using FiniteElementAnalysis.SourceRegions;
 using Core.Pool;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh;
 using Core.Maths.Matrices;
 using Core.Maths;
 using FiniteElementAnalysis.Results.ThreeD;
 using FiniteElementAnalysis.Results;
+using FiniteElementAnalysis.Solvers.Bases;
 
-namespace FiniteElementAnalysis.Solvers.ThreeD
+namespace FiniteElementAnalysis.Solvers
 {
-    public class StaticMagneticConductionSolver3D : SolverBaseSingleComponent3D<StaticMagneticConductionResult3D>
+    public class StaticMagneticConductionSolverBase : SolverBaseSingleComponent<StaticMagneticConductionResult3D>
     {
-        public StaticMagneticConductionSolver3D() : base(new FieldDOFInfo(3, 3, FieldOperationType.Curl))
+        public StaticMagneticConductionSolverBase() : base(new FieldDOFInfo(3, 3, FieldOperationType.Curl))
         {
         }
 
@@ -86,11 +86,11 @@ namespace FiniteElementAnalysis.Solvers.ThreeD
             // Log the start of the infinity boundary application
             Console.WriteLine("Applying infinity boundary condition...");
 
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
             foreach (var node in nodes)
             {
                 // Multiply global index by the number of degrees of freedom (DOF)
-                int globalIndex = mapNodeToGlobalIndex[node.Identifier] * _FieldDOFInfo.NDegreesOfFreedom;
+                int globalIndex = mapNodeToGlobalIndex[node.Index] * _FieldDOFInfo.NDegreesOfFreedom;
 
                 // Modify the global matrix (K) and the right-hand side vector (rhs)
                 // for the infinity boundary to allow natural decay of the magnetic vector potential

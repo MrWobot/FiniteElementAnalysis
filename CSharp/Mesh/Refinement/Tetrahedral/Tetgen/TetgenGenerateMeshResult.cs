@@ -216,8 +216,8 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
                             $" [{string.Join(",", nodes.Select(n => n.ToString()))}].");
                     }
                 }
-                var nodesOrdered = nodes.OrderBy(n => n.Identifier).ToArray();
-                var elements = getElementFromNodeIdentifiers(nodesOrdered[0].Identifier, nodesOrdered[1].Identifier, nodesOrdered[2].Identifier);
+                var nodesOrdered = nodes.OrderBy(n => n.Index).ToArray();
+                var elements = getElementFromNodeIdentifiers(nodesOrdered[0].Index, nodesOrdered[1].Index, nodesOrdered[2].Index);
                 if (!boundary.MultipleElementsAllowed
                     && !boundary.BoundaryConditionType.Equals(BoundaryConditionType.OperationSpecific)
                     && elements.Count() > 1) throw new Exception($"Multiple elements shared the same boundary face for boundary named \"{boundary.Name}\" with {nameof(BoundaryConditionType)} {Enum.GetName(typeof(BoundaryConditionType), boundary.BoundaryConditionType)}");
@@ -260,7 +260,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
         }
         private Node[] ReadNodes(DelegateGetBoundaryFromMarker getBoundaryFromMarker)
         {
-            int currentNodeIdentifier = 0;
+            //COULDBETOBLAME removed index for node identifeir which was renamed to index and then used index directly
             string[] nodeFileLines = File.ReadAllLines(NodeFilePath);
             string firstLine = nodeFileLines[0];
             string[] firstLineEntries = firstLine.Split(' ').Where(e => e != "").ToArray();
@@ -300,7 +300,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
                 double x = double.Parse(lineEntries[xLineIndex]);
                 double y = double.Parse(lineEntries[yLineIndex]);
                 double z = double.Parse(lineEntries[zLineIndex]);
-                Node node = new Node(currentNodeIdentifier++, x, y, z, attributes, boundary);
+                Node node = new Node(index, x, y, z, attributes, boundary);
                 nodes[index] = node;
             }
             return nodes;

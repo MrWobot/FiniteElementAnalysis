@@ -54,7 +54,7 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
 
             DelegateProjectVertex projectVertex = Create_ProjectVertex(resolvedAxis);
             var getReusedPlanarNode = Create_GetReusedPlanarNode(projectVertex, toleranceMeters, out Func<PlanarNode[]> getAllNodes);
-            Create_AddGetNodeToSegmentMappings(out Func<PlanarSegment, bool> addNodeToSegmentMappings,
+            Create_AddGetNodeToSegmentMappings(out Func< PlanarNode[], Volume, PlanarSegment ?> addNodeToSegmentMappings,
                 out Func<PlanarNode, PlanarNode, PlanarSegment[]?> getPlanarSegmentsEdgeBelongsTo, out Func<PlanarSegment[]> getAllSegments);
 
             var mapVolumeNameToVolume = volumes.Entries.ToDictionary(b => b.Name, b => b);
@@ -68,8 +68,8 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
                 {
                     continue;
                 }
-                var planarSegment = new PlanarSegment(planarNodesAscendingIndex, volume);
-                if (addNodeToSegmentMappings(planarSegment))
+                PlanarSegment? planarSegment = addNodeToSegmentMappings(planarNodesAscendingIndex, volume);
+                if (planarSegment!=null)
                 {
                     foreach (var n in planarNodesAscendingIndex)
                         n.AddBelongsTo(planarSegment);
@@ -125,7 +125,7 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
                 return marker;
             };
         }*/
-        private static void Create_AddGetNodeToSegmentMappings(out Func<PlanarSegment, bool> add,
+        private static void Create_AddGetNodeToSegmentMappings(out Func<PlanarNode[], Volume, PlanarSegment?> add,
                 out Func<PlanarNode, PlanarNode, PlanarSegment[]?> getPlanarSegmentsEdgeBelongsTo,
                 out Func<PlanarSegment[]> getAll)
         {
@@ -144,19 +144,20 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
                 mapNodePairsAscendingIndexToSegments.Map(
                     nodeAIndex, nodeBIndex, new List<PlanarSegment> { planarSegment });
             };
-            add = (planarSegment) =>
+            int nextIndex = 0;
+            add = (planarNodesAscendingIndex, volume) =>
             {
-                var nodeIndices = planarSegment.Nodes.Select(n => n.Index).OrderBy(i => i).ToArray();
+                var nodeIndices = planarNodesAscendingIndex.Select(n => n.Index).ToArray();
                 if (seenSegments.ContainsKey(nodeIndices[0], nodeIndices[1], nodeIndices[2]))
                 {
-                    return false;
+                    return null;
                 }
+                var planarSegment = new PlanarSegment(planarNodesAscendingIndex, nextIndex++, volume);
                 seenSegments.Map(nodeIndices[0], nodeIndices[1], nodeIndices[2], planarSegment);
-                var nodes = planarSegment.Nodes;
-                _add(nodes[0].Index, nodes[1].Index, planarSegment);
-                _add(nodes[0].Index, nodes[2].Index, planarSegment);
-                _add(nodes[1].Index, nodes[2].Index, planarSegment);
-                return true;
+                _add(planarNodesAscendingIndex[0].Index, planarNodesAscendingIndex[1].Index, planarSegment);
+                _add(planarNodesAscendingIndex[0].Index, planarNodesAscendingIndex[2].Index, planarSegment);
+                _add(planarNodesAscendingIndex[1].Index, planarNodesAscendingIndex[2].Index, planarSegment);
+                return planarSegment;
             };
             getPlanarSegmentsEdgeBelongsTo = (a, b) =>
             {

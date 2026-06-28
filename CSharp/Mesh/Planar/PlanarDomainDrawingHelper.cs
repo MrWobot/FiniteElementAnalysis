@@ -40,11 +40,11 @@ namespace FiniteElementAnalysis.Mesh.Planar
             }
             var image = Create(imageWidth, imageHeight, Color.Transparent);
             var nodeVectorToImageCoordinate = Create_NodeVectorToImageCoordinate(domainRectangle, imageWidth, imageHeight);
-            foreach (var segment in domain.Segments)
+            foreach (var segment in domain.Elements)
             {
-                var node1 = nodeVectorToImageCoordinate(segment.Nodes[0]);
-                var node2 = nodeVectorToImageCoordinate(segment.Nodes[1]);
-                var node3 = nodeVectorToImageCoordinate(segment.Nodes[2]);
+                var node1 = nodeVectorToImageCoordinate((PlanarNode)segment.Nodes[0]);
+                var node2 = nodeVectorToImageCoordinate((PlanarNode)segment.Nodes[1]);
+                var node3 = nodeVectorToImageCoordinate((PlanarNode)segment.Nodes[2]);
                 FillTriangle(image, node1.X, node1.Y, node2.X, node2.Y, node3.X, node3.Y, ToRGBA32(segment.VolumeBelongsTo.Color));
                 if (showAllTriangles)
                 {
@@ -53,11 +53,11 @@ namespace FiniteElementAnalysis.Mesh.Planar
                     DrawLine(image, node3.X, node3.Y, node1.X, node1.Y, 1f, defaultArcColourRGBA32);
                 }
             }
-            foreach (var edge in domain.BoundaryEdges)
+            foreach (var edge in domain.Edges)
             {
                 if (edge.Boundary == null) continue;
-                var node1 = nodeVectorToImageCoordinate(edge.Node1);
-                var node2 = nodeVectorToImageCoordinate(edge.Node2);
+                var node1 = nodeVectorToImageCoordinate((PlanarNode)edge.Nodes[0]);
+                var node2 = nodeVectorToImageCoordinate((PlanarNode)edge.Nodes[1]);
                 DrawLine(image, node1.X, node1.Y, node2.X, node2.Y, 4f, ToRGBA32(edge.Boundary.Color));
             }
             Save(image, filePath);

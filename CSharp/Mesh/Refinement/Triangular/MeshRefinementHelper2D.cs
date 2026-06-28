@@ -22,7 +22,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
             var getVertexFromNode = Create_GetVertexFromNode(domain, polygon);
             var mapMarkerToBoundary = new Dictionary<int, Boundary>();
             Func<Boundary, int> getBoundaryMarker = Create_GetBoundaryMarker(mapMarkerToBoundary);
-            foreach (var boundaryEdge in domain.BoundaryEdges)
+            foreach (var boundaryEdge in domain.PLanarEdges)
             {
                 var vertex1 = getVertexFromNode(boundaryEdge.Node1);
                 var vertex2 = getVertexFromNode(boundaryEdge.Node2);
@@ -30,7 +30,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
             }
             var mapMarkerToVolume = new Dictionary<int, Volume>();
             Func<Volume, int> getVolumeMarker = Create_GetVolumeMarker(mapMarkerToVolume);
-            foreach (var segment in domain.Segments)
+            foreach (var segment in domain.PlanarSegments)
             {
                 var (centroidX, centroidY) = segment.Centroid;
                 polygon.Regions.Add(new RegionPointer(centroidX, centroidY, getVolumeMarker(segment.VolumeBelongsTo), segment.VolumeBelongsTo.MaximumVolumeConstraint));

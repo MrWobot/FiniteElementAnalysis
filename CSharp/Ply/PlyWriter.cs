@@ -1,6 +1,5 @@
 ﻿using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Fields;
-using FiniteElementAnalysis.Mesh;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
 using FiniteElementAnalysis.MeshGeneration;
 using System.Text.RegularExpressions;
@@ -79,17 +78,17 @@ namespace FiniteElementAnalysis.Ply
             var mapVolumeToColor = volumesIncluded.ToDictionary(v => v, v => colours[colourIndex++]);
             Func<Volume, byte[]> getVolumeColour = (volume) => mapVolumeToColor[volume];
             var mapNodeIdentifierToColour = mesh.Elements.SelectMany(e => e.Nodes.Select(n => new { node = n, element = e }))
-                .GroupBy(o => o.node.Identifier)
+                .GroupBy(o => o.node.Index)
                 .Select(g => new
                 {
-                    nodeIdentifier = g.First().node.Identifier,
+                    nodeIdentifier = g.First().node.Index,
                     volume = g
                     .Select(o => o.element.VolumeIsAPartOf).GroupBy(v => v)
                     .OrderByDescending(vg => vg.Count())
                     .First().First()
                 })
                 .ToDictionary(o => o.nodeIdentifier, o => getVolumeColour(o.volume!));
-            byte[][] nodeColors = nodes.Select(n => mapNodeIdentifierToColour[n.Identifier]).ToArray();
+            byte[][] nodeColors = nodes.Select(n => mapNodeIdentifierToColour[n.Index]).ToArray();
             string? directoryPath = Path.GetDirectoryName(filePath);
             if (directoryPath == null)
                 throw new ArgumentException($"Invalid file path \"{filePath}\"");

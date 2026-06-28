@@ -2,11 +2,11 @@
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Fields;
 
-namespace FiniteElementAnalysis.Solvers.TwoD
+namespace FiniteElementAnalysis.Solvers.Bases
 {
-    public abstract class ScalarSolver2D<TSolverResult> : SolverBaseSingleComponent2D<TSolverResult>
+    public abstract class ScalarSolver<TSolverResult> : SolverBaseSingleComponent<TSolverResult>
     {
-        protected ScalarSolver2D(FieldOperationType fieldOperationType)
+        protected ScalarSolver(FieldOperationType fieldOperationType)
             : base(new FieldDOFInfo(1, 1, fieldOperationType))
         {
 

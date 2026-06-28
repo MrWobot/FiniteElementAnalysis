@@ -10,26 +10,24 @@ using Core.MemoryManagement;
 using Core.Maths.CUBLAS;
 using Core.Pool;
 using Core.Cleanup;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh;
 using Core.Maths.Matrices;
 using FiniteElementAnalysis.Boundaries.Electrostatic;
 using FiniteElementAnalysis.Results;
+using FiniteElementAnalysis.Mesh.Interfaces;
+using FiniteElementAnalysis.Solvers.Configuration;
+using TriangleNet;
 
-namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
+namespace FiniteElementAnalysis.Solvers.Bases
 {
-    public abstract class SolverBase3D<TSolverResult>
+    public abstract class SolverBase<TSolverResult>
     {
-        private const double MAX_PROPORTION_MEMORY_CAN_USE = 0.8d;
-        private const double MAX_PROPORTION_GPU_MEMORY_CAN_USE = 0.8d;
-        private const int N_GPU_CUDA_THREADS = 30;
         protected int _NDegreesOfFreedom;
-        protected SolverBase3D(int nDegreesOfFreedom)
+        protected SolverBase(int nDegreesOfFreedom)
         {
             _NDegreesOfFreedom = nDegreesOfFreedom;
         }
         public abstract TSolverResult Solve(
-            TetrahedralMesh mesh,
+            IMesh mesh,
             WorkingDirectoryManager workingDirectoryManager,
             string operationIdentifier = "default",
             DelegateApplySourceRegion[]? applySourceRegion_s = null,
@@ -38,7 +36,7 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             FileCachedItem<CoreSolverResult>? cachedSolverResult = null,
             bool useCachedSolverResults = false);
         protected CoreSolverResult _Solve(
-            TetrahedralMesh mesh,
+            IMesh mesh,
             WorkingDirectoryManager workingDirectoryManager,
             string operationIdentifier = "default",
             DelegateApplySourceRegion[]? applySourceRegion_s = null,
@@ -104,7 +102,7 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             }
         }
         private void DoActualSolve(
-            TetrahedralMesh mesh,
+            IMesh mesh,
             SolverMethod solverMethod,
             InfernoFiniteResourceSemaphore? memoryAllocationLock,
             IBigMatrix K,
@@ -149,7 +147,7 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             IBigMatrix K,
             double[] rhs,
             int size,
-            TetrahedralMesh mesh,
+            IMesh mesh,
             CompositeProgressHandler? progressHandler,
             DelegateApplySourceRegion[]? applySourceRegion_s,
             string operationIdentifier)
@@ -160,7 +158,7 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             ApplyBoundariesToGlobal(mesh, K, rhs, operationIdentifier, progressHandler);
         }
         public IterativeSolveHandle SolveNonLinearIterativeNoTensorReuse(
-            TetrahedralMesh mesh,
+            IMesh mesh,
             WorkingDirectoryManager workingDirectoryManager,
             string operationIdentifier = "default",
             DelegateApplySourceRegion[]? applySourceRegion_s = null,
@@ -248,7 +246,7 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
                 });
         }
         private CoreSolverResult? _Solve_Initialize(
-            TetrahedralMesh mesh,
+            IMesh mesh,
             FileCachedItem<CoreSolverResult>? cachedSolverResult,
             bool useCachedSolverResults,
             out int size,
@@ -277,7 +275,7 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             {
                 AssignIndicesToSystemMatrixModifyingBoundaries(sizeForNodes, systemMatrixModifyingBoundaries);
             }
-            Node[] nodes = mesh.Nodes;
+            INode[] nodes = mesh.Nodes;
             if (cachedSolverResult != null && useCachedSolverResults)
             {
                 Console.WriteLine("Attempting to read cached solver result...");
@@ -292,7 +290,7 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             }
 
             MemoryMetrics memoryMetrics = MemoryHelper.GetMemoryMetricsNow();
-            memoryAllocationLock = new InfernoFiniteResourceSemaphore((long)(memoryMetrics.Free * MAX_PROPORTION_MEMORY_CAN_USE));
+            memoryAllocationLock = new InfernoFiniteResourceSemaphore((long)(memoryMetrics.Free * GPUConfiguration.MAX_PROPORTION_MEMORY_CAN_USE));
             return null;
         }
         private void AssignIndicesToSystemMatrixModifyingBoundaries(int startIndex, ISystemMatrixModifyingBoundary[] systemMatrixModifyingBoundaries)
@@ -310,23 +308,24 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             }
         }
         protected abstract void StampElementMatricesOntoGlobal(IBigMatrix K, double[] rhs, int size,
-            TetrahedralMesh mesh,
+            IMesh mesh,
             CompositeProgressHandler? parentProgressHandler);
         protected void StampElementOntoGlobal(
-            TetrahedronElement element,
+            IElement element,
             Volume volume,
             double[] rhs,
             DelegateStampOntoGlobal stampOntoGlobal,
-
-            int nFieldComponents, FieldOperationType fieldOperationType)
+            int nFieldComponents, FieldOperationType fieldOperationType,
+            Func<double[], double> getThickness)
         {
             double[][] B = element.GetBMatrix(nFieldComponents, fieldOperationType, _NDegreesOfFreedom);
             double[][] BTranspose = element.GetBMatrixTranspose(nFieldComponents, fieldOperationType, _NDegreesOfFreedom);
             var bTransposeScaledByK = ScaleBTransposeByK(BTranspose, volume);
             var dotProduct = MatrixHelper.Multiply(
                 bTransposeScaledByK, B);
-            double[][] Ke = MatrixHelper.Scale(dotProduct, element.ElementVolume);
-            double[] rhsForElement = new double[4 * _NDegreesOfFreedom];
+            double thicknessIntegral = element.Nodes.Sum(n => getThickness(n.Position)) / element.Nodes.Length;
+            double[][] Ke = MatrixHelper.Scale(dotProduct, element.Measure * thicknessIntegral);
+            //double[] rhsForElement = new double[4 * _NDegreesOfFreedom];
             stampOntoGlobal(element.Nodes, Ke, rhs);
         }
         protected abstract double[][] ScaleBTransposeByK(double[][] bTranspose, Volume volume);
@@ -341,12 +340,12 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
         {
             Console.WriteLine("WorkingSet right at the start of inversion was: " + Environment.WorkingSet);
             InfernoFiniteResourceSemaphore gpuMemoryAllocationLock = new InfernoFiniteResourceSemaphore(
-                (long)(MemoryHelper.GetGPUMemoryMetrics().Free * MAX_PROPORTION_GPU_MEMORY_CAN_USE));
+                (long)(MemoryHelper.GetGPUMemoryMetrics().Free * GPUConfiguration.MAX_PROPORTION_GPU_MEMORY_CAN_USE));
             using (CudaContextAssignedThreadPool cudaContextAssignedThreadPool = new CudaContextAssignedThreadPool(10))
             {
                 GPUMathsParameters gpuMathsParameters = new GPUMathsParameters(
                     cudaContextAssignedThreadPool,
-                    MAX_PROPORTION_GPU_MEMORY_CAN_USE,
+                    GPUConfiguration.MAX_PROPORTION_GPU_MEMORY_CAN_USE,
                     gpuMemoryAllocationLock);
                 using (var blockOperationMatrix =
                     BlockOperationMatrixFactory.FromForInversion(
@@ -378,23 +377,23 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
         }
         protected abstract void ApplySourceRegions(
             DelegateApplySourceRegion[]? applySourceRegion_s,
-            TetrahedralMesh mesh,
+            IMesh mesh,
             IBigMatrix K,
             double[] rhs,
             string operationIdentifier,
             CompositeProgressHandler parentProgressHandler);
-        private void SetValueOnNodes(double[] unknowns, Node[] nodes)
+        private void SetValueOnNodes(double[] unknowns, INode[] nodes)
         {
             int dof = _NDegreesOfFreedom;
             for (int i = 0; i < nodes.Length; i++)
             {
-                Node node = nodes[i];
+                INode node = nodes[i];
                 double[] values = new double[dof];
                 Array.Copy(unknowns, i * dof, values, 0, dof);
                 node.Values = values;
             }
         }
-        protected void ApplyBoundariesToGlobal(TetrahedralMesh mesh,
+        protected void ApplyBoundariesToGlobal(IMesh mesh,
             IBigMatrix K, double[] rhs, string operationIdentifier,
             CompositeProgressHandler parentProgressHandler)
         {
@@ -412,25 +411,25 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             }
             progressHandler.Set(1);
         }
-        protected abstract void ApplyBoundaryToGlobal(Boundary boundary, TetrahedralMesh mesh,
+        protected abstract void ApplyBoundaryToGlobal(Boundary boundary, IMesh mesh,
             IBigMatrix K, double[] rhs, string operationIdentifier);
         protected DelegateStampOntoGlobal Get_StampOntoGlobal(IBigMatrix K, double[] rhs, int size,
-    Dictionary<int, int> mapNodeToGlobalIndex)
+    Dictionary<int, int> mapNodeToGlobalIndex, int nNodesPerElement)
         {
             int dof = _NDegreesOfFreedom;
             return (nodes, Ke, rhsE) =>
             {
-                for (int row = 0; row < 4; row++)  // Loop over the 4 nodes of the element
+                for (int row = 0; row < nNodesPerElement; row++)  // Loop over the nodes of the element
                 {
-                    Node nodeRow = nodes[row];
-                    int globalNodeRowIndex = mapNodeToGlobalIndex[nodeRow.Identifier];  // Get global row index
+                    INode nodeRow = nodes[row];
+                    int globalNodeRowIndex = mapNodeToGlobalIndex[nodeRow.Index];  // Get global row index
                     for (int dofRow = 0; dofRow < dof; dofRow++)  // Loop over DOFs for this row
                     {
                         int globalRowIndex = dof * globalNodeRowIndex + dofRow;
-                        for (int column = 0; column < 4; column++)  // Loop over the columns
+                        for (int column = 0; column < nNodesPerElement; column++)  // Loop over the columns
                         {
-                            Node nodeColumn = nodes[column];
-                            int globalNodeColumnIndex = mapNodeToGlobalIndex[nodeColumn.Identifier];  // Get global column index
+                            INode nodeColumn = nodes[column];
+                            int globalNodeColumnIndex = mapNodeToGlobalIndex[nodeColumn.Index];  // Get global column index
                             for (int dofColumn = 0; dofColumn < dof; dofColumn++)  // Loop over DOFs for the column
                             {
                                 int globalColumnIndex = dof * globalNodeColumnIndex + dofColumn;
@@ -456,10 +455,6 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             for (int col = 0; col < n; col++)
             {
                 A[fixedIndex, col] = 0; // Zero out the entire row
-                if (A[fixedIndex, col] != 0)
-                {
-                    A[fixedIndex, col] = 0;
-                }
             }
             A[fixedIndex, fixedIndex] = 1; // Set the diagonal element to 1
             // Step 2: Modify the RHS vector C
@@ -489,31 +484,31 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             return solverResult.ValidationHash == validationHash;
         }
         protected void ApplyDirichletBoundary(
-    Boundary boundary, TetrahedralMesh mesh, IBigMatrix K, double[] rhs,
+    Boundary boundary, IMesh mesh, IBigMatrix K, double[] rhs,
     double boundaryNodalScalarValue)
         {
             ApplyDirichletBoundary(boundary, mesh, K, rhs, new double[] { boundaryNodalScalarValue });
         }
         protected void ApplyDirichletBoundary(
-    Boundary boundary, TetrahedralMesh mesh, IBigMatrix K, double[] rhs,
+    Boundary boundary, IMesh mesh, IBigMatrix K, double[] rhs,
     double[] boundaryNodalVectorValues)
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
             if (boundaryNodalVectorValues.Length != _NDegreesOfFreedom)
             {
                 throw new ArgumentException("The length of the boundaryNodalVectorValues must match the degrees of freedom.");
             }
-            Node[] nodes = mesh.GetFacesForBoundary(boundary)
-                ?.SelectMany(f => f.Nodes)
+            INode[] nodes = mesh.GetPrimitivesForBoundary(boundary)
+                .SelectMany(p=>p.Nodes)
                 .GroupBy(n => n)
                 .Select(g => g.First())
                 .ToArray();
 
             if (nodes == null) return;
             HashSet<int> rowsToBeProcessed = new HashSet<int>();
-            foreach (Node node in nodes)
+            foreach (INode node in nodes)
             {
-                int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                int nodeIndex = mapNodeToGlobalIndex[node.Index];
                 for (int iDof = 0; iDof < _NDegreesOfFreedom; iDof++)
                 {
                     int dofIndex = nodeIndex * _NDegreesOfFreedom + iDof;
@@ -524,9 +519,9 @@ namespace FiniteElementAnalysis.Solvers.ThreeD.Bases
             foreach (int rowIndex in rowsToBeProcessed)
             {
                 double[] row = K.ReadRow(rowIndex);
-                foreach (Node node in nodes)
+                foreach (INode node in nodes)
                 {
-                    int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                    int nodeIndex = mapNodeToGlobalIndex[node.Index];
                     for (int iDof = 0; iDof < _NDegreesOfFreedom; iDof++)
                     {
                         int dofIndex = nodeIndex * _NDegreesOfFreedom + iDof;

@@ -1,19 +1,21 @@
-﻿using FiniteElementAnalysis.SourceRegions;
+﻿using Core.Maths;
+using FiniteElementAnalysis.SourceRegions;
+using FiniteElementAnalysis.Fields;
 using Core.Pool;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
 using Core.Maths.Matrices;
-using FiniteElementAnalysis.Boundaries;
+using FiniteElementAnalysis.Mesh.Interfaces;
 
-namespace FiniteElementAnalysis.Solvers.ThreeD
+namespace FiniteElementAnalysis.Solvers.Bases
 {
-    public abstract class MultiComponentSolverBase3D<TSolverResult> : SolverBase3D<TSolverResult>
+    public abstract class SolverBaseSingleComponent<TSolverResult> : SolverBase<TSolverResult>
     {
-        protected MultiComponentSolverBase3D(int nDegreesOfFreedom) : base(nDegreesOfFreedom)
+        protected FieldDOFInfo _FieldDOFInfo;
+        protected SolverBaseSingleComponent(FieldDOFInfo fieldDOFInfo) : base(fieldDOFInfo.NDegreesOfFreedom)
         {
+            _FieldDOFInfo = fieldDOFInfo;
         }
-
         protected override void StampElementMatricesOntoGlobal(IBigMatrix K, double[] rhs, int size,
-            TetrahedralMesh mesh,
+            IMesh mesh,
             CompositeProgressHandler? parentProgressHandler)
         {
             StandardProgressHandler? progressHandler = null;
@@ -25,27 +27,24 @@ namespace FiniteElementAnalysis.Solvers.ThreeD
                 updateProgress = progressHandler?.GetUpdateProgress(mesh.Elements.Length, 20);
             }
             DelegateStampOntoGlobal stampOntoGlobal =
-                Get_StampOntoGlobal(K, rhs, size, mesh.MapNodeIdentifierToGlobalIndex);
-            foreach (TetrahedronElement element in mesh.Elements)
+                Get_StampOntoGlobal(K, rhs, size, mesh.MapNodeIndexToGlobalIndex, mesh.NNodesPerElement);
+            foreach (IElement element in mesh.Elements)
             {
-                Volume volume = element.VolumeIsAPartOf!;
-                if (!typeof(MultiComponentVolume).IsAssignableFrom(volume.GetType()))
-                {
-                    throw new InvalidOperationException($"Only {nameof(MultiComponentVolume)} is supported");
-                }
-                MultiComponentVolume multiMaterialVolume = (MultiComponentVolume)volume;
-                foreach (VolumeComponent component in multiMaterialVolume.Components)
-                {
-                    StampElementOntoGlobal(element, volume, rhs, stampOntoGlobal,
-                        component.NFieldComponents, component.FieldOperationType);
-                }
+                StampElementOntoGlobal(
+                    element,
+                    element.VolumeBelongsTo!,
+                    rhs, stampOntoGlobal,
+                    _FieldDOFInfo.NFieldComponents,
+                    _FieldDOFInfo.FieldOperationType,
+                    mesh.GetThickness
+                );
                 updateProgress?.Invoke();
             }
             progressHandler?.Set(1);
         }
-        private void ApplySourceRegions(
-            DelegateApplySourceRegion2[]? applySourceRegion_s,
-            TetrahedralMesh mesh,
+        protected override void ApplySourceRegions(
+            DelegateApplySourceRegion[]? applySourceRegion_s,
+            IMesh mesh,
             IBigMatrix K,
             double[] rhs,
             string operationIdentifier,
@@ -62,9 +61,9 @@ namespace FiniteElementAnalysis.Solvers.ThreeD
             }
             CompositeProgressHandler progressHandler = new CompositeProgressHandler(applySourceRegion_s.Length);
             parentProgressHandler.AddChild(progressHandler);
-            foreach (DelegateApplySourceRegion2 applySourceRegion in applySourceRegion_s)
+            foreach (DelegateApplySourceRegion applySourceRegion in applySourceRegion_s)
             {
-                applySourceRegion(mesh, _NDegreesOfFreedom, K, rhs, operationIdentifier, progressHandler);
+                applySourceRegion(mesh, _FieldDOFInfo, K, rhs, operationIdentifier, progressHandler);
             }
         }
     }

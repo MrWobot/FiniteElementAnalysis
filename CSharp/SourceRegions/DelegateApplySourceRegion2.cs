@@ -1,12 +1,11 @@
 ﻿using Core.Maths.Matrices;
 using Core.Pool;
-using FiniteElementAnalysis.Fields;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
+using FiniteElementAnalysis.Mesh.Interfaces;
 
 namespace FiniteElementAnalysis.SourceRegions
 {
     public delegate void DelegateApplySourceRegion2(
-            TetrahedralMesh mesh,
+            IMesh mesh,
             int nDegreesOfFreedom,
             IBigMatrix K,
             double[] rhs, 

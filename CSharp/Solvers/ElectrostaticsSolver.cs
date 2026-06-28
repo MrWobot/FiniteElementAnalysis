@@ -3,19 +3,18 @@ using FiniteElementAnalysis.Fields;
 using Core.FileSystem;
 using FiniteElementAnalysis.SourceRegions;
 using Core.Pool;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh;
 using Core.Maths.Matrices;
 using FiniteElementAnalysis.Boundaries.Electrostatic;
 using FiniteElementAnalysis.Results.ThreeD;
 using FiniteElementAnalysis.Results;
-using FiniteElementAnalysis.Solvers.TwoD.Bases;
+using FiniteElementAnalysis.Solvers.Bases;
+using FiniteElementAnalysis.Mesh.Interfaces;
 
-namespace FiniteElementAnalysis.Solvers.TwoD
+namespace FiniteElementAnalysis.Solvers
 {
-    public class ElectrostaticsSolver2D : ScalarSolver2D<ElectrostaticsResult3D>
+    public class ElectrostaticsSolver : ScalarSolver<ElectrostaticsResult3D>
     {
-        public ElectrostaticsSolver2D() : base(FieldOperationType.Gradient)
+        public ElectrostaticsSolver() : base(FieldOperationType.Gradient)
         {
         }
 
@@ -24,7 +23,7 @@ namespace FiniteElementAnalysis.Solvers.TwoD
             return ((ElectrostaticsVolume)volume).TotalPermittivity;
         }
 
-        protected override void ApplyBoundaryToGlobal(Boundary boundary, TetrahedralMesh mesh,
+        protected override void ApplyBoundaryToGlobal(Boundary boundary, IMesh mesh,
             IBigMatrix K, double[] rhs, string operationIdentifier)
         {
             switch (boundary.BoundaryConditionType)
@@ -49,52 +48,62 @@ namespace FiniteElementAnalysis.Solvers.TwoD
             }
         }
 
-        private static void ApplyFixedPotentialDirichletBoundary(FixedPotentialDirichletBoundary boundary, TetrahedralMesh mesh,
-            IBigMatrix K, double[] rhs)
+        private static void ApplyFixedPotentialDirichletBoundary(
+            FixedPotentialDirichletBoundary boundary,
+            IMesh mesh,
+            IBigMatrix K,
+            double[] rhs
+        )
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
-            Node[]? nodes = mesh.GetFacesForBoundary(boundary)?.SelectMany(f => f.Nodes).GroupBy(n => n).Select(g => g.First()).ToArray();
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            INode[]? nodes = mesh.GetPrimitivesForBoundary(boundary)?
+                .SelectMany(p => p.Nodes)
+                .GroupBy(n => n)
+                .Select(g => g.First())
+                .ToArray();
             if (nodes == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces or nodes.");
-            foreach (Node node in nodes)
+            foreach (INode node in nodes)
             {
-                int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                int nodeIndex = mapNodeToGlobalIndex[node.Index];
                 FixValueInUnknowns(K, rhs, nodeIndex, boundary.Potential);
             }
         }
 
         private static void ApplyFixedNormalElectricFieldNeumannBoundary(FixedNormalElectricFieldNeumannBoundary boundary,
-            TetrahedralMesh mesh, double[] rhs)
+            IMesh mesh, double[] rhs)
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
-            BoundaryFace[]? faces = mesh.GetFacesForBoundary(boundary);
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            IBoundaryPrimitive[]? faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces.");
-            foreach (BoundaryFace face in faces)
+            foreach (IBoundaryPrimitive primitive in faces)
             {
-                if (face.Elements.Length > 1) throw new Exception("Face with Normal Electric Field Neumann Boundary cannot belong to multiple elements");
-                double area = face.Area;
-                double nodeContribution = area / 3.0 * boundary.VoltsPerMeter
-                    * ((ElectrostaticsVolume)face.Elements[0].VolumeIsAPartOf).TotalPermittivity;
-                foreach (Node node in face.Nodes)
+                if (primitive.Elements.Length > 1) throw new Exception("Face with Normal Electric Field Neumann Boundary cannot belong to multiple elements");
+                double thicknessIntegral = primitive.Nodes
+                 .Sum(n => mesh.GetThickness(n.Position)) / primitive.Nodes.Length;
+                double nodeContribution = primitive.Measure * thicknessIntegral / primitive.Nodes.Length * boundary.VoltsPerMeter
+                    * ((ElectrostaticsVolume)primitive.Elements[0].VolumeBelongsTo).TotalPermittivity;
+                foreach (INode node in primitive.Nodes)
                 {
-                    int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                    int nodeIndex = mapNodeToGlobalIndex[node.Index];
                     rhs[nodeIndex] += nodeContribution;
                 }
             }
         }
 
         private static void ApplyFixedSurfaceChargeDensityNeumannBoundary(FixedSurfaceChargeDensityNeumannBoundary boundary,
-            TetrahedralMesh mesh, double[] rhs)
+            IMesh mesh, double[] rhs)
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
-            BoundaryFace[]? faces = mesh.GetFacesForBoundary(boundary);
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            IBoundaryPrimitive[]? faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces.");
-            foreach (BoundaryFace face in faces)
+            foreach (IBoundaryPrimitive primitive in faces)
             {
-                double area = face.Area;
-                double nodeContribution = area / 3.0 * boundary.ChargeDensityCoulombsPerMeterSquared;
-                foreach (Node node in face.Nodes)
+                double thicknessIntegral = primitive.Nodes
+                 .Sum(n => mesh.GetThickness(n.Position)) / primitive.Nodes.Length;
+                double nodeContribution = primitive.Measure * thicknessIntegral / primitive.Nodes.Length * boundary.ChargeDensityCoulombsPerMeterSquared;
+                foreach (INode node in primitive.Nodes)
                 {
-                    int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                    int nodeIndex = mapNodeToGlobalIndex[node.Index];
                     rhs[nodeIndex] += nodeContribution;
                 }
             }
@@ -102,23 +111,23 @@ namespace FiniteElementAnalysis.Solvers.TwoD
 
 
         private static void ApplyFloatingPotentialBoundary(FloatingPotentialBoundary boundary,
-            TetrahedralMesh mesh, IBigMatrix K, double[] rhs)
+            IMesh mesh, IBigMatrix K, double[] rhs)
         {
             if (!boundary.IndicesHaveBeenAssigned || boundary.IndicesAssigned!.Length != 1)
                 throw new InvalidOperationException("FloatingPotentialBoundary must have one assigned index before application.");
 
             int lambdaIndex = boundary.IndicesAssigned[0];
-            var mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
-            var faces = mesh.GetFacesForBoundary(boundary);
+            var mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            var faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces.");
 
             var boundaryNodes = faces.SelectMany(f => f.Nodes).Distinct().ToArray();
             if (boundaryNodes.Length == 0) throw new Exception($"Boundary '{boundary.Name}' has no associated nodes.");
 
             double coeff = 1.0 / boundaryNodes.Length;
-            foreach (Node node in boundaryNodes)
+            foreach (INode node in boundaryNodes)
             {
-                int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                int nodeIndex = mapNodeToGlobalIndex[node.Index];
                 K[nodeIndex, lambdaIndex] += coeff;
                 K[lambdaIndex, nodeIndex] += coeff;
             }
@@ -127,7 +136,7 @@ namespace FiniteElementAnalysis.Solvers.TwoD
         }
 
 
-        public override ElectrostaticsResult3D Solve(TetrahedralMesh mesh, WorkingDirectoryManager workingDirectoryManager,
+        public override ElectrostaticsResult3D Solve(IMesh mesh, WorkingDirectoryManager workingDirectoryManager,
             string operationIdentifier = "default", DelegateApplySourceRegion[]? applySourceRegion_s = null,
             SolverMethod solverMethod = SolverMethod.BlockMatrixInversionGpuOnly,
             CompositeProgressHandler? progressHandler = null,

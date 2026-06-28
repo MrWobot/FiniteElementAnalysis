@@ -2,7 +2,6 @@
 using System.Text.RegularExpressions;
 using FiniteElementAnalysis.Fields;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh;
 namespace FiniteElementAnalysis.VTK
 {
 

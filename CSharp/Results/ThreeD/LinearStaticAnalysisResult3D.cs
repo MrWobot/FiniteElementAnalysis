@@ -2,20 +2,19 @@
 using Core.Maths;
 using Core.Maths.Vectors;
 using FiniteElementAnalysis.Boundaries;
-using FiniteElementAnalysis.Mesh;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
+using FiniteElementAnalysis.Mesh.Interfaces;
 
 namespace FiniteElementAnalysis.Results.ThreeD
 {
-    public class LinearStaticAnalysisResult3D : VectorResultBase3D
+    public class LinearStaticAnalysisResult3D : VectorResultBase
     {
         public double[] Displacements => CoreResult.UnknownsVector;
-        public LinearStaticAnalysisResult3D(TetrahedralMesh mesh, CoreSolverResult coreResult)
+        public LinearStaticAnalysisResult3D(IMesh mesh, CoreSolverResult coreResult)
             : base(mesh, coreResult)
         {
 
         }
-        public TetrahedralMesh DisplaceMesh()
+        public IMesh DisplaceMesh()
         {
             return DisplaceMesh(_ResultMesh, Displacements);
         }
@@ -41,15 +40,17 @@ namespace FiniteElementAnalysis.Results.ThreeD
             }
             return (maxDisplacementX, maxDisplacementY, maxDisplacementZ);
         }
-        public static TetrahedralMesh DisplaceMesh(TetrahedralMesh existingMesh, double[] displacements)
+        public static IMesh DisplaceMesh(IMesh existingMesh, double[] displacements)
         {
+            throw new NotImplementedException("This was not implemented properly its not parsing new nodes to new mesh and stuff and needs to be implemented so it works for all types of mesh now using IMesh");
+            /*
             Node[] newNodes = new Node[existingMesh.Nodes.Length];
             int displacementsIndex = 0;
             int nodeIndex = 0;
             foreach (Node existingNode in existingMesh.Nodes)
             {
                 Node newNode = new Node(
-                    existingNode.Identifier,
+                    existingNode.Index,
                     existingNode.X + displacements[displacementsIndex++],
                     existingNode.Y + displacements[displacementsIndex++],
                     existingNode.Z + displacements[displacementsIndex++],
@@ -58,6 +59,7 @@ namespace FiniteElementAnalysis.Results.ThreeD
                 newNodes[nodeIndex++] = newNode;
             }
             return new TetrahedralMesh(existingMesh.Boundaries, existingMesh.Volumes, newNodes, existingMesh.BoundaryFaces, existingMesh.Elements, existingMesh.ElementsBVHTree);
+            */
         }
         public void ComputeNodalNormalAndShearStressStrainAsSeperateVectors(
             bool computeStress, bool computeStrain,
@@ -126,13 +128,13 @@ namespace FiniteElementAnalysis.Results.ThreeD
             var mapNodeToStressVolumeSum = createNodalStressVector ? new Dictionary<int, double[]>() : null;
             var mapNodeToTotalElementsBelongsToVolume = createNodalStrainVector
                 || createNodalStressVector ? new Dictionary<int, double>() : null;
-            foreach (var element in _ResultMesh.Elements)
+            foreach (IElement element in _ResultMesh.Elements)
             {
                 double[] elementDisplacementVector = new double[12];
                 int elementDisplacementIndex = 0;
-                foreach (Node elementNode in element.Nodes)
+                foreach (INode elementNode in element.Nodes)
                 {
-                    int globalDisplacementIndex = _ResultMesh.MapNodeIdentifierToGlobalIndex[elementNode.Identifier]
+                    int globalDisplacementIndex = _ResultMesh.MapNodeIndexToGlobalIndex[elementNode.Index]
                         * 3;
                     for (int j = 0; j < 3; j++)
                     {
@@ -147,12 +149,12 @@ namespace FiniteElementAnalysis.Results.ThreeD
                 double[]? stress = null;
                 if (createElementsStressVector || createNodalStressVector)
                 {
-                    Type volumeType = element.VolumeIsAPartOf!.GetType();
+                    Type volumeType = element.VolumeBelongsTo!.GetType();
                     if (!typeof(StaticLinearElasticVolume).IsAssignableFrom(volumeType))
                     {
-                        throw new Exception($"The element with identifier {element.Identifier} does not belong to a volume assignable to type {typeof(StaticLinearElasticVolume)}. It has type {volumeType.Name}");
+                        throw new Exception($"The element with identifier {element.Index} does not belong to a volume assignable to type {typeof(StaticLinearElasticVolume)}. It has type {volumeType.Name}");
                     }
-                    stress = MatrixHelper.MatrixMultiplyByVector(((StaticLinearElasticVolume)element.VolumeIsAPartOf).ElasticityMatrix, strain);
+                    stress = MatrixHelper.MatrixMultiplyByVector(((StaticLinearElasticVolume)element.VolumeBelongsTo).ElasticityMatrix, strain);
                     if (createElementsStressVector)
                     {
                         Array.Copy(stress, 0, elementsStressVector!, elementsIndex, 6);
@@ -160,41 +162,41 @@ namespace FiniteElementAnalysis.Results.ThreeD
                 }
                 if (mapNodeToTotalElementsBelongsToVolume != null)
                 {
-                    double elementVolume = element.ElementVolume;
-                    foreach (Node elementNode in element.Nodes)
+                    double elementVolume = element.Measure;
+                    foreach (INode elementNode in element.Nodes)
                     {
-                        if (mapNodeToTotalElementsBelongsToVolume.ContainsKey(elementNode.Identifier))
+                        if (mapNodeToTotalElementsBelongsToVolume.ContainsKey(elementNode.Index))
                         {
-                            mapNodeToTotalElementsBelongsToVolume[elementNode.Identifier] += elementVolume;
+                            mapNodeToTotalElementsBelongsToVolume[elementNode.Index] += elementVolume;
                         }
                         else
                         {
-                            mapNodeToTotalElementsBelongsToVolume[elementNode.Identifier] = elementVolume;
+                            mapNodeToTotalElementsBelongsToVolume[elementNode.Index] = elementVolume;
                         }
 
                         if (mapNodeToStrainsVolumeSum != null)
                         {
                             double[] strainTimesVolume = VectorHelper.Scale(strain, elementVolume);
-                            if (mapNodeToStrainsVolumeSum!.TryGetValue(elementNode.Identifier, out double[]? nodalStrainVolumeSum))
+                            if (mapNodeToStrainsVolumeSum!.TryGetValue(elementNode.Index, out double[]? nodalStrainVolumeSum))
                             {
                                 VectorHelper.AddOntoFirstVector(nodalStrainVolumeSum, strainTimesVolume);
                             }
                             else
                             {
-                                mapNodeToStrainsVolumeSum[elementNode.Identifier] = strainTimesVolume;
+                                mapNodeToStrainsVolumeSum[elementNode.Index] = strainTimesVolume;
                             }
 
                         }
                         if (mapNodeToStressVolumeSum != null)
                         {
                             double[] stressTimesVolume = VectorHelper.Scale(stress!, elementVolume);
-                            if (mapNodeToStressVolumeSum!.TryGetValue(elementNode.Identifier, out double[]? nodalStressVolumeSum))
+                            if (mapNodeToStressVolumeSum!.TryGetValue(elementNode.Index, out double[]? nodalStressVolumeSum))
                             {
                                 VectorHelper.AddOntoFirstVector(nodalStressVolumeSum, stressTimesVolume);
                             }
                             else
                             {
-                                mapNodeToStressVolumeSum[elementNode.Identifier] = stressTimesVolume;
+                                mapNodeToStressVolumeSum[elementNode.Index] = stressTimesVolume;
                             }
 
                         }
@@ -205,17 +207,17 @@ namespace FiniteElementAnalysis.Results.ThreeD
             if (createNodalStrainVector || createNodalStressVector)
             {
                 int globalIndex = 0;
-                foreach (var node in _ResultMesh.Nodes)
+                foreach (INode node in _ResultMesh.Nodes)
                 {
-                    double totalElementsBelongsToVolume = mapNodeToTotalElementsBelongsToVolume![node.Identifier];
+                    double totalElementsBelongsToVolume = mapNodeToTotalElementsBelongsToVolume![node.Index];
                     if (createNodalStrainVector)
                     {
-                        double[] nodalStrains = VectorHelper.Scale(mapNodeToStrainsVolumeSum![node.Identifier], 1d / totalElementsBelongsToVolume);
+                        double[] nodalStrains = VectorHelper.Scale(mapNodeToStrainsVolumeSum![node.Index], 1d / totalElementsBelongsToVolume);
                         Array.Copy(nodalStrains, 0, nodalStrainVector!, globalIndex, 6);
                     }
                     if (createNodalStressVector)
                     {
-                        double[] nodalStresses = VectorHelper.Scale(mapNodeToStressVolumeSum![node.Identifier], 1d / totalElementsBelongsToVolume);
+                        double[] nodalStresses = VectorHelper.Scale(mapNodeToStressVolumeSum![node.Index], 1d / totalElementsBelongsToVolume);
                         Array.Copy(nodalStresses, 0, nodalStressVector!, globalIndex, 6);
                     }
                     globalIndex += 6;

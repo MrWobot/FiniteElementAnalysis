@@ -12,6 +12,7 @@
     <Compile Remove="Boundaries\ForceBoundaryCondition.cs" />
     <Compile Remove="Boundaries\TemperatureBoundaryCondition.cs" />
     <Compile Remove="Cuboid.cs" />
+    <Compile Remove="Solvers\GRSolver.cs" />
     <Compile Remove="Solvers\MagneticFieldSolver.cs" />
     <Compile Remove="Solvers\ScalarSolver_New.cs" />
     <Compile Remove="Solvers\ScalarSolver_Old.cs" />

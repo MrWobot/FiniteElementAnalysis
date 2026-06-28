@@ -1,9 +1,6 @@
-﻿using Core.Maths.Matrices;
-using FiniteElementAnalysis.Mesh;
-using MathNet.Numerics.Statistics;
-using System.Text;
+﻿using FiniteElementAnalysis.Mesh.Interfaces;
 
 namespace FiniteElementAnalysis.Solvers
 {
-    public delegate void DelegateStampOntoGlobal(Node[] nodes, double[][] Ke, double[] rhsE);
+    public delegate void DelegateStampOntoGlobal(INode[] nodes, double[][] Ke, double[] rhsE);
 }
