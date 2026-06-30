@@ -4,7 +4,7 @@ using Core.Maths.Tensors;
 using FiniteElementAnalysis.Mesh.Interfaces;
 using System.Xml.Linq;
 
-namespace FiniteElementAnalysis.Results.ThreeD
+namespace FiniteElementAnalysis.Results.Bases
 {
     public abstract class ScalarResultBase : ResultBase
     {
@@ -15,7 +15,7 @@ namespace FiniteElementAnalysis.Results.ThreeD
         {
             foreach (INode node in mesh.Nodes)
             {
-                _MapNodeIndexToResultValue[node.Index] = node.ScalarValue;
+                _MapNodeIndexToResultValue[node.Identifier] = node.Values![0];
             }
         }
     }

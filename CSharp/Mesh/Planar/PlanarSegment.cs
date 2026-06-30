@@ -1,29 +1,32 @@
-﻿using Core.Graphics;
+﻿using Core.Geometry;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Fields;
 using FiniteElementAnalysis.Mesh.Interfaces;
-using System.Numerics;
 
 namespace FiniteElementAnalysis.Mesh.Planar
 {
 
-    public class PlanarSegment:IElement
+    public class PlanarSegment : IElement
     {
 
-        public int Index { get; }
+        public int Identifier { get; }
 
         public INode[] Nodes { get; }
         PlanarNode NodeA { get; }
         PlanarNode NodeB { get; }
         PlanarNode NodeC { get; }
         private double? _Measure;
-        public double Measure { get {
+        public double Measure
+        {
+            get
+            {
                 if (_Measure == null)
                 {
                     _Measure = Math.Abs((NodeB.X - NodeA.X) * (NodeC.Y - NodeA.Y) - (NodeC.X - NodeA.X) * (NodeB.Y - NodeA.Y)) / 2.0;
                 }
                 return (double)_Measure;
-            } }
+            }
+        }
         /*
         private PlanarEdge? _Edge;
         public PlanarEdge Edge
@@ -43,7 +46,7 @@ namespace FiniteElementAnalysis.Mesh.Planar
             NodeA = nodes[0];
             NodeB = nodes[1];
             NodeC = nodes[2];
-            Index = index;
+            Identifier = index;
             VolumeBelongsTo = volumeBelongsTo;
             foreach (PlanarNode node in nodes)
             {
@@ -63,7 +66,7 @@ namespace FiniteElementAnalysis.Mesh.Planar
             if (Nodes.Length != other.Nodes.Length) return false;
             for (int i = 0; i < Nodes.Length; i++)
             {
-                if (Nodes[i].Index == other.Nodes[i].Index)
+                if (Nodes[i].Identifier == other.Nodes[i].Identifier)
                     return false;
             }
             return true;
@@ -88,8 +91,53 @@ namespace FiniteElementAnalysis.Mesh.Planar
         {
             throw new NotImplementedException();
         }
+        public bool IsPointInside(double[] point)
+        {
+            double[] N = ComputeShapeFunctionsAtPoint(point);
+            double epsilon = 1e-10;
+            return N[0] >= -epsilon && N[1] >= -epsilon && N[2] >= -epsilon;
+        }
+        public Rectangle BoundingRectangle
+        {
+            get
+            {
+                return new Rectangle(
+                    Math.Min(NodeA.X, Math.Min(NodeB.X, NodeC.X)),
+                    Math.Min(NodeA.Y, Math.Min(NodeB.Y, NodeC.Y)),
+                    Math.Max(NodeA.X, Math.Max(NodeB.X, NodeC.X)),
+                    Math.Max(NodeA.Y, Math.Max(NodeB.Y, NodeC.Y))
+                );
+            }
+        }
+        private double[] ComputeShapeFunctionsAtPoint(double[] point)
+        {
+            double totalArea = Measure;
+            double x = point[0], y = point[1];
+            double xA = NodeA.X, yA = NodeA.Y;
+            double xB = NodeB.X, yB = NodeB.Y;
+            double xC = NodeC.X, yC = NodeC.Y;
+            // Barycentric coordinates
+            double NA = ((yB - yC) * (x - xC) + (xC - xB) * (y - yC)) / (2.0 * totalArea);
+            double NB = ((yC - yA) * (x - xC) + (xA - xC) * (y - yC)) / (2.0 * totalArea);
+            double NC = 1.0 - NA - NB;
+            return [NA, NB, NC];
+        }
 
-        public (double, double) Centroid
+        public double[] InterpolateValueAtPoint(double[] point, int nDegreesFreedom)
+        {
+            if (!IsPointInside(point)) throw new Exception("Point was not inside");
+            double[] N = ComputeShapeFunctionsAtPoint(point);
+            double[] values = new double[nDegreesFreedom];
+            for (int dof = 0; dof < nDegreesFreedom; dof++)
+            {
+                values[dof] = N[0] * Nodes[0].Values![dof]
+                            + N[1] * Nodes[1].Values![dof]
+                            + N[2] * Nodes[2].Values![dof];
+            }
+            return values;
+        }
+
+        public double[] Centroid
         {
             get
             {
@@ -101,7 +149,7 @@ namespace FiniteElementAnalysis.Mesh.Planar
                     xSum += planarNode.X;
                     ySum += planarNode.Y;
                 }
-                return (xSum / 3d, ySum / 3d);
+                return [xSum / 3d, ySum / 3d];
             }
         }
     }

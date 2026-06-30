@@ -2,6 +2,8 @@
 using Core.Geometry;
 using Core.Maths.Tensors;
 using Core.Trees;
+using FiniteElementAnalysis.Mesh.Interfaces;
+using FiniteElementAnalysis.Mesh.Parsing.Planar.PlanarDomainFromObjMtlHelper_Internal;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -19,12 +21,13 @@ namespace FiniteElementAnalysis.Plotting
             Directory.CreateDirectory(directoryPath);
             if (planesToInclude.Length < 1)
                 planesToInclude = new PlotPlaneType[] { PlotPlaneType.X, PlotPlaneType.Y, PlotPlaneType.Z};
-            double xMin = mesh.Nodes.Min(n => n.X);
-            double yMin = mesh.Nodes.Min(n => n.Y);
-            double zMin = mesh.Nodes.Min(n => n.Z);
-            double xMax = mesh.Nodes.Max(n => n.X);
-            double yMax = mesh.Nodes.Max(n => n.Y);
-            double zMax = mesh.Nodes.Max(n => n.Z);
+            var nodes = mesh.Nodes.Cast<Node>().ToArray();
+            double xMin = nodes.Min(n => n.X);
+            double yMin = nodes.Min(n => n.Y);
+            double zMin = nodes.Min(n => n.Z);
+            double xMax = nodes.Max(n => n.X);
+            double yMax = nodes.Max(n => n.Y);
+            double zMax = nodes.Max(n => n.Z);
             double dX = xMax - xMin;
             double dY = yMax - yMin;
             double dZ = zMax - zMin;
@@ -82,12 +85,12 @@ namespace FiniteElementAnalysis.Plotting
                         {
                             Vector3D point = plane.Get3DPointFromXY(x + (i * dXSubStep), y + (j * dYSubStep),
                                 new Vector3D(1, 0, 0));
-                            TetrahedronElement[] elementsContainingPoint = mesh.ElementsBVHTree.QueryBVH(point)
+                            IElement[] elementsContainingPoint = mesh.GetElementsContainingPoint(point.ToArray()).Cast<TetrahedronElement>()
                                 .Where(e => e.IsPointInside(point)).ToArray();
                             if (elementsContainingPoint.Length > 0)
                             {
                                 double value = elementsContainingPoint
-                                    .Select(e => e.InterpolateScalarValueAtPoint(point)).Sum() / elementsContainingPoint.Length;
+                                    .Select(e => ((TetrahedronElement)e).InterpolateScalarValueAtPoint(point)).Sum() / elementsContainingPoint.Length;
                                 valuesAtSubPoints.Add(value);
                             }
                             else {

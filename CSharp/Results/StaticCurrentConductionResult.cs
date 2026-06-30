@@ -7,56 +7,24 @@ using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Fields;
 using FiniteElementAnalysis.Mesh.Interfaces;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
+using FiniteElementAnalysis.Results.Bases;
 
-namespace FiniteElementAnalysis.Results.ThreeD
+namespace FiniteElementAnalysis.Results
 {
-    public class StaticCurrentConductionResult3D : ScalarResultBase
+    public class StaticCurrentConductionResult : ScalarResultBase
     {
         public double[] NodalVoltages => CoreResult.UnknownsVector;
-        public StaticCurrentConductionResult3D(IMesh mesh, CoreSolverResult coreResult) : base(mesh, coreResult)
+        public StaticCurrentConductionResult(IMesh mesh, CoreSolverResult coreResult) : base(mesh, coreResult)
         {
 
         }
-        public Vector3D? GetVolumeCurrentDensityAtPoint(Vector3D point)
+        public double[]? GetVolumeCurrentDensityAtPoint(double[] point)
         {
-            return _ResultMesh.ElementsBVHTree.QueryBVH(point)
+            return _ResultMesh.GetElementsContainingPoint(point)
                     .Where(e => e.IsPointInside(point))
                     .Select(e => GetVolumeCurrentDensityForElement(e))
             .FirstOrDefault();
-        }// Function to compute the current density at a point within an element
-        public double[] ComputeCurrentDensityAtPoint(TetrahedronElement element, Vector3D point)
-        {
-            double[] currentDensity = new double[3]; // J_x, J_y, J_z
-            double[] electricField = new double[3];  // E_x, E_y, E_z
-
-            // Loop through the 4 nodes of the tetrahedral element
-            for (int nodeIndex = 0; nodeIndex < 4; nodeIndex++)
-            {
-                Node node = element.Nodes[nodeIndex];
-                // Get the gradient of the shape function for this node (constant for linear elements)
-                double[] shapeFunctionConstants = element.ShapeFunctions[nodeIndex];
-                double shapeFunctionAtPoint = shapeFunctionConstants[0]
-                    + shapeFunctionConstants[1] * point.X
-                    + shapeFunctionConstants[2] * point.Y
-                    + shapeFunctionConstants[3] * point.Z;
-
-                // Voltage at the current node
-                double voltageAtNode = _MapNodeIndexToResultValue[node.Index];
-
-                // Accumulate the electric field: E = - sum(grad(N_i) * voltage_i)
-                electricField[0] -= shapeFunctionAtPoint * shapeFunctionConstants[1] * voltageAtNode; // E_x component
-                electricField[1] -= shapeFunctionAtPoint * shapeFunctionConstants[2] * voltageAtNode; // E_y component
-                electricField[2] -= shapeFunctionAtPoint * shapeFunctionConstants[3] * voltageAtNode; // E_z component
-            }
-            double conductivity = ((StaticCurrentVolume)element.VolumeBelongsTo!).Conductivity;
-            // Compute the current density: J = sigma * E
-            currentDensity[0] = conductivity * electricField[0]; // J_x component
-            currentDensity[1] = conductivity * electricField[1]; // J_y component
-            currentDensity[2] = conductivity * electricField[2]; // J_z component
-
-            return currentDensity;
         }
-
 
         //CF working
         public VectorFieldResult GetNodalVolumeCurrentDensities(string fieldResultName)
@@ -70,31 +38,34 @@ namespace FiniteElementAnalysis.Results.ThreeD
             double sum = 0;
             while (i < nodalCurrentDensities.Length)
             {
-                double x = nodalCurrentDensities[i++];
-                double y = nodalCurrentDensities[i++];
-                double z = nodalCurrentDensities[i++];
-                double magnitude = GetCurrentDensityMagnitude(x, y, z);
+                double sumSquares = 0;
+                for (int j = 0; j < _ResultMesh.NodePositionLength; j++)
+                {
+                    sumSquares += Math.Pow(nodalCurrentDensities[i++], 2);
+                }
+                double magnitude = Math.Sqrt(sumSquares);
                 sum += magnitude;
             }
-            double nCurrentDensities = nodalCurrentDensities.Length / 3d;
+            double nCurrentDensities = nodalCurrentDensities.Length / _ResultMesh.NodePositionLength;
             return sum / nCurrentDensities;
         }
-        private double GetCurrentDensityMagnitude(double x, double y, double z)
+        private double GetCurrentDensityMagnitude(double[] currentDensity)
         {
-            return Math.Sqrt(Math.Pow(x, 2) + Math.Pow(y, 2) - Math.Pow(z, 2));
+            return Math.Sqrt(currentDensity.Sum(v=>Math.Pow(v, 2)));
         }
         private double[] GetNodalVolumeCurrentDensities()
         {
 
-            TetrahedralMesh toMesh = _ResultMesh;
-            double[] values = new double[toMesh.Nodes.Length * 3];
+            INode[] nodes = _ResultMesh.Nodes;
+            double[] values = new double[nodes.Length * _ResultMesh.NodePositionLength];
             int valuesIndex = 0;
-            foreach (Node node in toMesh.Nodes)
+            foreach (INode node in nodes)
             {
-                Vector3D currentDensity = GetVolumeCurrentDensityForNodeByAveragingElements(node.Index);
-                values[valuesIndex++] = currentDensity.X;
-                values[valuesIndex++] = currentDensity.Y;
-                values[valuesIndex++] = currentDensity.Z;
+                double[] currentDensity = GetVolumeCurrentDensityForNodeByAveragingElements(node.Identifier);
+                for(int i=0; i<_ResultMesh.NodePositionLength; i++)
+                {
+                    values[valuesIndex++] = currentDensity[i];
+                }
             }
             return values;
         }/* WRONG
@@ -134,27 +105,72 @@ namespace FiniteElementAnalysis.Results.ThreeD
                 Sum = new double[] { first[0], first[1], first[2] };
             }
         }
-        /*working but not idea. averages from elements*/
+        /*working but not ideal. averages from elements*/
+        
         public void ApplyVolumeCurrentDensities(
-        TetrahedralMesh meshBeingAppliedTo,
+            IMesh meshBeingAppliedTo,
+            FieldDOFInfo fieldDOFInfo,
+            IBigMatrix K,
+            double[] rhs,
+            string operationIdentifier,
+            CompositeProgressHandler? parentProgressHandler)
+        {
+            int nSpatialDims = _ResultMesh.NodePositionLength;
+            double averageR0 = 0;
+            foreach (INode thisNode in _ResultMesh.Nodes)
+            {
+                double[] total = new double[nSpatialDims];
+                var elementsContainingNode = _ResultMesh.MapNodeToElementsBelongsTo[thisNode.Index];
+                double[] totalForElements = new double[nSpatialDims];
+                foreach (var element in elementsContainingNode)
+                {
+                    INode[] nodes = element.Nodes;
+                    double conductivity = ((StaticCurrentVolume)element.VolumeBelongsTo!).Conductivity;
+                    double[] voltages = nodes.Select(n => _MapNodeIndexToResultValue[n.Identifier]).ToArray();
+                    int targetNodeIndex = Array.IndexOf(nodes, thisNode);
+                    for (int j = 0; j < nodes.Length; j++)
+                    {
+                        if (j == targetNodeIndex) continue;
+                        double deltaV = voltages[j] - voltages[targetNodeIndex];
+                        double[] dPosition = new double[nSpatialDims];
+                        for (int k = 0; k < nSpatialDims; k++)
+                            dPosition[k] = nodes[j].Position[k] - nodes[targetNodeIndex].Position[k];
+                        double distance = Math.Sqrt(dPosition.Sum(v => v * v));
+                        if (distance == 0) continue;
+                        double scale = -deltaV / (distance * distance) * conductivity * element.Measure;
+                        for (int k = 0; k < nSpatialDims; k++)
+                            totalForElements[k] += dPosition[k] * scale;
+                    }
+                }
+                for (int k = 0; k < nSpatialDims; k++)
+                    total[k] += totalForElements[k] / elementsContainingNode.Count();
+                int globalIndex = meshBeingAppliedTo.MapNodeIdentifierToGlobalIndex[thisNode.Identifier];
+                averageR0 += total[0];
+                for (int k = 0; k < nSpatialDims; k++)
+                    rhs[globalIndex * nSpatialDims + k] = total[k];
+            }
+            averageR0 = averageR0 / _ResultMesh.Nodes.Length;
+        }/*
+        public void ApplyVolumeCurrentDensities(
+        IMesh meshBeingAppliedTo,
         FieldDOFInfo fieldDOFInfo,
         IBigMatrix K,
         double[] rhs,
         string operationIdentifier,
         CompositeProgressHandler? parentProgressHandler)
         {
-            double averageVolume = _ResultMesh.Elements.Select(e => e.ElementVolume).Sum() / _ResultMesh.Elements.Length;
+            double averageVolume = _ResultMesh.Elements.Select(e => e.Measure).Sum() / _ResultMesh.Elements.Length;
 
             double averageR0 = 0;
-            foreach (Node thisNode in _ResultMesh.Nodes)
+            foreach (Node thisNode in _ResultMesh.Nodes.Cast<Node>())
             {
                 Vector3D total = new Vector3D(0, 0, 0);
                 var elementsContainingNode =
-                    _ResultMesh.MapNodeToElementsBelongsTo[thisNode.Index];
+                    _ResultMesh.MapNodeToElementsBelongsTo[thisNode.Identifier];
                 Vector3D totalForElements = Vector3D.Zeros();
                 foreach (var element in elementsContainingNode)
                 {
-                    Node[] nodes = element.Nodes;
+                    Node[] nodes = element.Nodes.Cast<Node>().ToArray();
                     double conductivity = ((StaticCurrentVolume)element.VolumeBelongsTo!).Conductivity;
 
 
@@ -163,10 +179,10 @@ namespace FiniteElementAnalysis.Results.ThreeD
 
                     // Retrieve voltages at each node
                     double[] voltages = new double[] {
-                    _MapNodeIndexToResultValue[element.NodeA.Index],
-                    _MapNodeIndexToResultValue[element.NodeB.Index],
-                    _MapNodeIndexToResultValue[element.NodeC.Index],
-                    _MapNodeIndexToResultValue[element.NodeD.Index]
+                    _MapNodeIndexToResultValue[nodes[0].Identifier],
+                    _MapNodeIndexToResultValue[nodes[1].Identifier],
+                    _MapNodeIndexToResultValue[nodes[2].Identifier],
+                    _MapNodeIndexToResultValue[nodes[3].Identifier]
                 };
 
                     int targetNodeIndex = Array.IndexOf(nodes, thisNode);
@@ -196,11 +212,11 @@ namespace FiniteElementAnalysis.Results.ThreeD
                         Vector3D currentDensityContribution = electricFieldContribution.Scale(conductivity);
 
                         // Add this to the total current density at the target node
-                        totalForElements += currentDensityContribution.Scale(element.ElementVolume);
+                        totalForElements += currentDensityContribution.Scale(element.Measure);
                     }
                 }
                 total += totalForElements.Scale(1d / elementsContainingNode.Count());
-                int globalIndex = meshBeingAppliedTo.MapNodeIndexToGlobalIndex[thisNode.Index];
+                int globalIndex = meshBeingAppliedTo.MapNodeIdentifierToGlobalIndex[thisNode.Identifier];
                 averageR0 += total.X;
                 rhs[globalIndex * 3] = total.X;
                 rhs[globalIndex * 3 + 1] = total.Y;
@@ -208,6 +224,35 @@ namespace FiniteElementAnalysis.Results.ThreeD
             }
             averageR0 = averageR0 / _ResultMesh.Nodes.Length;
         }
+        
+        public void ApplyVolumeCurrentDensitiesProperUntested(
+            IMesh meshBeingAppliedTo,
+            FieldDOFInfo fieldDOFInfo,
+            IBigMatrix K,
+            double[] rhs,
+            string operationIdentifier,
+            CompositeProgressHandler? parentProgressHandler)
+        {
+            int nSpatialDims = _ResultMesh.NodePositionLength;
+            foreach (INode node in meshBeingAppliedTo.Nodes)
+            {
+                var elementsContainingNode = _ResultMesh.MapNodeToElementsBelongsTo[node.Identifier];
+                double[] weightedCurrentDensity = new double[nSpatialDims];
+                double totalVolume = 0;
+                foreach (var element in elementsContainingNode)
+                {
+                    double[] currentDensity = GetVolumeCurrentDensityForElement(element);
+                    double elementVolume = element.Measure;
+                    for (int k = 0; k < nSpatialDims; k++)
+                        weightedCurrentDensity[k] += currentDensity[k] * elementVolume;
+                    totalVolume += elementVolume;
+                }
+                int globalIndex = meshBeingAppliedTo.MapNodeIdentifierToGlobalIndex[node.Identifier];
+                for (int k = 0; k < nSpatialDims; k++)
+                    rhs[globalIndex * nSpatialDims + k] = weightedCurrentDensity[k] / totalVolume;
+            }
+        }
+        /*
         public double[] ComputeInflowOutflowForElementWithShapeFunctions(TetrahedronElement element, double conductivity)
         {
             // Element volume
@@ -261,9 +306,11 @@ namespace FiniteElementAnalysis.Results.ThreeD
                     double shapeFuncZ = shapeFunctions[2][i]; // Shape function value for z at node i
 
                     // Sign adjustment based on relative positions (to account for inflow/outflow)
-                    double xSign = Math.Sign(element.Nodes[j].X - thisNode.X);
-                    double ySign = Math.Sign(element.Nodes[j].Y - thisNode.Y);
-                    double zSign = Math.Sign(element.Nodes[j].Z - thisNode.Z);
+                    double[] elementNodePosition = element.Nodes[j].Position;
+                    double[] thisNodePosition = thisNode.Position;
+                    double xSign = Math.Sign(elementNodePosition[0] - thisNodePosition[0]);
+                    double ySign = Math.Sign(elementNodePosition[1] - thisNodePosition[1]);
+                    double zSign = Math.Sign(elementNodePosition[2] - thisNodePosition[2]);
 
                     // Sum the contributions for inflow/outflow, weighted by the shape functions
                     totalCurrentDensity[0] += currentDensityX * shapeFuncX * xSign;
@@ -278,7 +325,7 @@ namespace FiniteElementAnalysis.Results.ThreeD
             totalCurrentDensity[2] *= elementVolume / 2.0;
 
             return totalCurrentDensity; // This represents the inflow/outflow current density with correct units (A·m)
-        }
+        }*/
         /*the one working on
         public void ApplyVolumeCurrentDensities(
     TetrahedralMesh meshBeingAppliedTo,
@@ -511,41 +558,38 @@ namespace FiniteElementAnalysis.Results.ThreeD
         }*/
 
         //CF working
-        private Vector3D GetVolumeCurrentDensityForElement(TetrahedronElement element)
+        private double[] GetVolumeCurrentDensityForElement(IElement element)
         {
-            double[] V = new double[] {
-                _MapNodeIndexToResultValue[element.NodeA.Index],
-                _MapNodeIndexToResultValue[element.NodeB.Index],
-                _MapNodeIndexToResultValue[element.NodeC.Index],
-                _MapNodeIndexToResultValue[element.NodeD.Index]
-            };
-            double[] J = VectorHelper.Scale(
-                MatrixHelper.MatrixMultiplyByVector(element.ScalarBMatrix, V),
+            double[] V = element.Nodes.Select(n => _MapNodeIndexToResultValue[n.Identifier]).ToArray();
+            return VectorHelper.Scale(
+                MatrixHelper.MatrixMultiplyByVector(
+                    //Should return ScalarBMatrix. 
+                    element.GetBMatrix(CoreResult.NFieldComponents, CoreResult.FieldOperationType, CoreResult.NDegreesOfFreedom), V),
                 -1 * ((StaticCurrentVolume)element.VolumeBelongsTo!).Conductivity);
-            return new Vector3D(J[0], J[1], J[2]);
-        }/**/
+        }
 
 
 
         //CF working
-        private Vector3D GetVolumeCurrentDensityForNodeByAveragingElements(int nodeIdentifier)
+        private double[] GetVolumeCurrentDensityForNodeByAveragingElements(int nodeIdentifier)
         {
-            Vector3D totalWeightedCurrentDensity = new Vector3D(0, 0, 0);
-            if (!_ResultMesh.MapNodeToElementsBelongsTo.TryGetValue(nodeIdentifier, out List<TetrahedronElement>? elementsContainingNode))
+            int nSpatialDims = _ResultMesh.NodePositionLength;
+            double[] totalWeightedCurrentDensity = new double[nSpatialDims];
+            if (!_ResultMesh.MapNodeToElementsBelongsTo.TryGetValue(nodeIdentifier,
+                out List<IElement>? elementsContainingNode))
             {
                 return totalWeightedCurrentDensity;
             }
             double totalVolume = 0;
             foreach (var element in elementsContainingNode)
             {
-                double elementVolume = element.ElementVolume;
-                Vector3D elementCurrentDensityWeighted = GetVolumeCurrentDensityForElement(element).Scale(elementVolume);
+                double elementVolume = element.Measure;
+                double[] elementCurrentDensity = GetVolumeCurrentDensityForElement(element);
+                for (int i = 0; i < nSpatialDims; i++)
+                    totalWeightedCurrentDensity[i] += elementCurrentDensity[i] * elementVolume;
                 totalVolume += elementVolume;
-                totalWeightedCurrentDensity += elementCurrentDensityWeighted;
             }
-            Vector3D averageCurrentDensity = totalWeightedCurrentDensity / totalVolume;
-
-            return averageCurrentDensity;
+            return totalWeightedCurrentDensity.Select(v => v / totalVolume).ToArray();
         }
 
         /*

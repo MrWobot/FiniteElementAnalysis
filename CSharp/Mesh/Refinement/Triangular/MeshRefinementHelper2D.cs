@@ -1,6 +1,7 @@
 ﻿using Core.Collections;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Mesh.Planar;
+using FiniteElementAnalysis.Mesh.Planar.Thickness;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,18 +23,19 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
             var getVertexFromNode = Create_GetVertexFromNode(domain, polygon);
             var mapMarkerToBoundary = new Dictionary<int, Boundary>();
             Func<Boundary, int> getBoundaryMarker = Create_GetBoundaryMarker(mapMarkerToBoundary);
-            foreach (var boundaryEdge in domain.PLanarEdges)
+            foreach (var boundaryEdge in domain.Edges)
             {
-                var vertex1 = getVertexFromNode(boundaryEdge.Node1);
-                var vertex2 = getVertexFromNode(boundaryEdge.Node2);
+                PlanarEdge planarEdge = (PlanarEdge)boundaryEdge;
+                var vertex1 = getVertexFromNode(planarEdge.Node1);
+                var vertex2 = getVertexFromNode(planarEdge.Node2);
                 polygon.Add(new Segment(vertex1, vertex2, getBoundaryMarker(boundaryEdge.Boundary)));
             }
             var mapMarkerToVolume = new Dictionary<int, Volume>();
             Func<Volume, int> getVolumeMarker = Create_GetVolumeMarker(mapMarkerToVolume);
-            foreach (var segment in domain.PlanarSegments)
+            foreach (var segment in domain.Elements)
             {
-                var (centroidX, centroidY) = segment.Centroid;
-                polygon.Regions.Add(new RegionPointer(centroidX, centroidY, getVolumeMarker(segment.VolumeBelongsTo), segment.VolumeBelongsTo.MaximumVolumeConstraint));
+                double[] centroid = segment.Centroid;
+                polygon.Regions.Add(new RegionPointer(centroid[0], centroid[1], getVolumeMarker(segment.VolumeBelongsTo), segment.VolumeBelongsTo.MaximumVolumeConstraint));
             }
 
             var quality = new QualityOptions()
@@ -43,25 +45,30 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
             };
             var triangulator = new GenericMesher();
             var mesh2D = (TriangleNet.Mesh)triangulator.Triangulate(polygon, quality);
-            return ToNewPlanarDomain(mesh2D, mapMarkerToBoundary, mapMarkerToVolume, domain.Volumes, domain.Boundaries);
+            return ToNewPlanarDomain(mesh2D, mapMarkerToBoundary, mapMarkerToVolume, domain.ThicknessSource, domain.Volumes, domain.Boundaries);
         }
         private static PlanarDomain ToNewPlanarDomain(TriangleNet.Mesh mesh,
             Dictionary<int, Boundary> mapMarkerToBoundary,
             Dictionary<int, Volume> mapMarkerToVolume,
+            PlanarThicknessSourceBase thicknessSource,
             VolumesCollection volumes,
             BoundariesCollection boundaries)
         {
             var mapVertexToPlanarNode = new Dictionary<Vertex, PlanarNode>();
+            var newPlanarNodes = new List<PlanarNode>();
             var newPlanarSegments = new List<PlanarSegment>();
             var newPlanarBoundaryEdges = new List<PlanarEdge>();
             int nextNodeIndex = 0;
             foreach (var vertex in mesh.Vertices)
             {
-                mapVertexToPlanarNode[vertex] = new PlanarNode(vertex.X, vertex.Y, nextNodeIndex++);
+                PlanarNode newPlanarNode = new PlanarNode(vertex.X, vertex.Y, nextNodeIndex++);
+                mapVertexToPlanarNode[vertex] = newPlanarNode;
+                newPlanarNodes.Add(newPlanarNode);
             }
             Create_MapNodePairsToSegment_GetSegmentFromNodePair(
             out Action<PlanarSegment> mapNodePairsToSegment,
             out Func<PlanarNode, PlanarNode, PlanarSegment[]> getSegmentsFromNodePair);
+            int nextElementIndex = 0;
             foreach (var triangle in mesh.Triangles)
             {
                 if (!mapMarkerToVolume.TryGetValue(triangle.Label, out Volume? volume) || volume == null)
@@ -74,6 +81,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
                         mapVertexToPlanarNode[triangle.GetVertex(1)],
                         mapVertexToPlanarNode[triangle.GetVertex(2)]
                     },
+                    nextElementIndex++,
                     volume
                 );
                 mapNodePairsToSegment(newPlanarSegment);
@@ -97,7 +105,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
                     )
                 );
             }
-            return new PlanarDomain(boundaries, volumes, mapVertexToPlanarNode.Values.ToArray(), newPlanarSegments.ToArray(), newPlanarBoundaryEdges.ToArray());
+            return new PlanarDomain(boundaries, volumes, thicknessSource, newPlanarNodes.ToArray(), newPlanarSegments.ToArray(), newPlanarBoundaryEdges.ToArray());
         }
         private static void Create_MapNodePairsToSegment_GetSegmentFromNodePair(
             out Action<PlanarSegment> mapNodePairsToSegment,
@@ -117,21 +125,21 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
             mapNodePairsToSegment = (planarSegment) =>
             {
                 var nodesOrderedById = planarSegment.Nodes
-                    .OrderBy(n => n.Index).Select(n => n.Index).ToArray();
+                    .OrderBy(n => n.Identifier).Select(n => n.Identifier).ToArray();
                 _map(nodesOrderedById[0], nodesOrderedById[1], planarSegment);
                 _map(nodesOrderedById[0], nodesOrderedById[2], planarSegment);
                 _map(nodesOrderedById[1], nodesOrderedById[2], planarSegment);
             };
             getSegmentsFromNodePair = (planarNodeA, planarNodeB) =>
             {
-                if (planarNodeA.Index < planarNodeB.Index)
+                if (planarNodeA.Identifier < planarNodeB.Identifier)
                 {
-                    mapNodePairIndicesAscendingToPlanarSegment.TryGetValue(planarNodeA.Index, planarNodeB.Index, out List<PlanarSegment>? segments);
+                    mapNodePairIndicesAscendingToPlanarSegment.TryGetValue(planarNodeA.Identifier, planarNodeB.Identifier, out List<PlanarSegment>? segments);
                     return segments!.ToArray();
                 }
                 else
                 {
-                    mapNodePairIndicesAscendingToPlanarSegment.TryGetValue(planarNodeB.Index, planarNodeA.Index, out List<PlanarSegment>? segments);
+                    mapNodePairIndicesAscendingToPlanarSegment.TryGetValue(planarNodeB.Identifier, planarNodeA.Identifier, out List<PlanarSegment>? segments);
                     return segments!.ToArray();
                 }
             };
@@ -173,9 +181,10 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
             var mapNodeToVertex = new Dictionary<PlanarNode, Vertex>();
             foreach (var node in domain.Nodes)
             {
-                if (mapNodeToVertex.ContainsKey(node)) continue;
-                var vertex = new Vertex(node.X, node.Y);
-                mapNodeToVertex.Add(node, vertex);
+                PlanarNode planarNode = (PlanarNode)node;
+                if (mapNodeToVertex.ContainsKey(planarNode)) continue;
+                var vertex = new Vertex(planarNode.X, planarNode.Y);
+                mapNodeToVertex.Add(planarNode, vertex);
                 polygon.Add(vertex);
             }
             return (node) =>

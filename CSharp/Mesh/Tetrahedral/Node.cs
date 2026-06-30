@@ -6,18 +6,18 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
 
     public class Node : Vector3D, INode
     {
-        public int Index{ get; }
+        public int Identifier{ get; }
         private double[]? _Attributes;
         public double[] Attributes { get { return _Attributes!; } }
         public override bool Equals(object? obj)
         {
             return obj is Node node &&
-                   Index == node.Index;
+                   Identifier == node.Identifier;
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Index);
+            return HashCode.Combine(Identifier);
         }
         public double[]? Values { get; set; }
         public double ScalarValue
@@ -32,10 +32,10 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
 
         public double[] Position => new double[] { X, Y, Z };
 
-        public Node(int index, double x, double y, double z, double[]? attributes)
+        public Node(int identifier, double x, double y, double z, double[]? attributes)
             : base(x, y, z)
         {
-            Index = index;
+            Identifier = identifier;
             _Attributes = attributes;
         }
     }

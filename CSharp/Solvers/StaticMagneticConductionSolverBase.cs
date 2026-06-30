@@ -9,15 +9,16 @@ using Core.Pool;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
 using Core.Maths.Matrices;
 using Core.Maths;
-using FiniteElementAnalysis.Results.ThreeD;
-using FiniteElementAnalysis.Results;
 using FiniteElementAnalysis.Solvers.Bases;
+using FiniteElementAnalysis.Mesh.Interfaces;
+using FiniteElementAnalysis.Results.Bases;
+using FiniteElementAnalysis.Results;
 
 namespace FiniteElementAnalysis.Solvers
 {
-    public class StaticMagneticConductionSolverBase : SolverBaseSingleComponent<StaticMagneticConductionResult3D>
+    public abstract class StaticMagneticConductionSolverBase : SolverBaseSingleComponent<StaticMagneticConductionResult>
     {
-        public StaticMagneticConductionSolverBase() : base(new FieldDOFInfo(3, 3, FieldOperationType.Curl))
+        public StaticMagneticConductionSolverBase(FieldDOFInfo fieldDOFInfo) : base(fieldDOFInfo)
         {
         }
 
@@ -33,15 +34,15 @@ namespace FiniteElementAnalysis.Solvers
             return bTransposeScaledByK;
         }
 
-        public override StaticMagneticConductionResult3D Solve(TetrahedralMesh mesh, WorkingDirectoryManager workingDirectoryManager, string operationIdentifier = "default", DelegateApplySourceRegion[]? applySourceRegion_s = null, SolverMethod solverMethod = SolverMethod.BlockMatrixInversionGpuOnly, CompositeProgressHandler? progressHandler = null, FileCachedItem<CoreSolverResult>? cachedSolverResult = null, bool useCachedSolverResults = false)
+        public override StaticMagneticConductionResult Solve(IMesh mesh, WorkingDirectoryManager workingDirectoryManager, string operationIdentifier = "default", DelegateApplySourceRegion[]? applySourceRegion_s = null, SolverMethod solverMethod = SolverMethod.BlockMatrixInversionGpuOnly, CompositeProgressHandler? progressHandler = null, FileCachedItem<CoreSolverResult>? cachedSolverResult = null, bool useCachedSolverResults = false)
         {
             CoreSolverResult coreResult = _Solve(mesh, workingDirectoryManager, operationIdentifier, applySourceRegion_s, solverMethod,
                 progressHandler, cachedSolverResult, useCachedSolverResults);
-            return new StaticMagneticConductionResult3D(mesh, coreResult);
+            return new StaticMagneticConductionResult(mesh, coreResult);
         }
 
         // Apply boundary conditions to the global matrix K and rhs vector
-        protected override void ApplyBoundaryToGlobal(Boundary boundary, TetrahedralMesh mesh,
+        protected override void ApplyBoundaryToGlobal(Boundary boundary, IMesh mesh,
             IBigMatrix K, double[] rhs, string operationIdentifier)
         {
             switch (boundary.BoundaryConditionType)
@@ -71,11 +72,11 @@ namespace FiniteElementAnalysis.Solvers
             }
         }
         // Method to apply the infinity boundary condition
-        private void ApplyInfinityBoundary(InfinityBoundary boundary, TetrahedralMesh mesh,
+        private void ApplyInfinityBoundary(InfinityBoundary boundary, IMesh mesh,
             IBigMatrix K, double[] rhs)
         {
             // Get unique nodes associated with the boundary faces
-            Node[]? nodes = mesh.GetFacesForBoundary(boundary)
+            INode[]? nodes = mesh.GetPrimitivesForBoundary(boundary)
                 ?.SelectMany(f => f.Nodes)      // Get all nodes from the boundary faces
                 .GroupBy(n => n)                // Group to remove duplicates
                 .Select(g => g.First())         // Select the unique nodes
@@ -86,11 +87,11 @@ namespace FiniteElementAnalysis.Solvers
             // Log the start of the infinity boundary application
             Console.WriteLine("Applying infinity boundary condition...");
 
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
-            foreach (var node in nodes)
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
+            foreach (INode node in nodes)
             {
                 // Multiply global index by the number of degrees of freedom (DOF)
-                int globalIndex = mapNodeToGlobalIndex[node.Index] * _FieldDOFInfo.NDegreesOfFreedom;
+                int globalIndex = mapNodeToGlobalIndex[node.Identifier] * _FieldDOFInfo.NDegreesOfFreedom;
 
                 // Modify the global matrix (K) and the right-hand side vector (rhs)
                 // for the infinity boundary to allow natural decay of the magnetic vector potential

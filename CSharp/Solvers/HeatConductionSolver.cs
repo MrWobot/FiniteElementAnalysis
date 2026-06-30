@@ -6,11 +6,11 @@ using Core.FileSystem;
 using FiniteElementAnalysis.SourceRegions;
 using Core.Pool;
 using Core.Maths.Matrices;
-using FiniteElementAnalysis.Results.ThreeD;
-using FiniteElementAnalysis.Results;
 using FiniteElementAnalysis.Solvers.Bases;
 using FiniteElementAnalysis.Mesh.Interfaces;
 using Core.Exceptions;
+using FiniteElementAnalysis.Results.Bases;
+using FiniteElementAnalysis.Results;
 
 namespace FiniteElementAnalysis.Solvers
 {
@@ -18,7 +18,7 @@ namespace FiniteElementAnalysis.Solvers
     //This one explains overlap of basis functions
     //https://www.researchgate.net/publication/382609774_Finite_element_solution_of_heat_conduction_in_complex_3D_geometries
     //The heat conduction equation, also known as heat diffusion equation or fouriers law.
-    public class HeatConductionSolver : ScalarSolver<HeatConductionResult3D>
+    public class HeatConductionSolver : ScalarSolver<HeatConductionResult>
     {
         public HeatConductionSolver() : base(FieldOperationType.Gradient)
         {
@@ -66,7 +66,7 @@ namespace FiniteElementAnalysis.Solvers
     double[] rhs)
         {
             throw new NeverUsedOrDebuggedException();
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             IBoundaryPrimitive[]? primitives = mesh.GetPrimitivesForBoundary(boundary);
             if (primitives == null) return;
             double h = boundary.ConvectiveHeatTransferCoefficientH;
@@ -86,10 +86,10 @@ namespace FiniteElementAnalysis.Solvers
 
                 for (int i = 0; i < n; i++)
                 {
-                    int iIndex = mapNodeToGlobalIndex[primitive.Nodes[i].Index];
+                    int iIndex = mapNodeToGlobalIndex[primitive.Nodes[i].Identifier];
                     for (int j = 0; j < n; j++)
                     {
-                        int jIndex = mapNodeToGlobalIndex[primitive.Nodes[j].Index];
+                        int jIndex = mapNodeToGlobalIndex[primitive.Nodes[j].Identifier];
                         K[iIndex, jIndex] += i == j ? diagonal : offDiagonal;
                     }
                     // RHS contribution
@@ -104,7 +104,7 @@ namespace FiniteElementAnalysis.Solvers
     double[] rhs)
         {
             throw new NeverUsedOrDebuggedException();
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             IBoundaryPrimitive[]? primitives = mesh.GetPrimitivesForBoundary(boundary);
             if (primitives == null || primitives.Length < 1) return false;
 
@@ -135,10 +135,10 @@ namespace FiniteElementAnalysis.Solvers
 
                 for (int i = 0; i < n; i++)
                 {
-                    int iIndex = mapNodeToGlobalIndex[primitive.Nodes[i].Index];
+                    int iIndex = mapNodeToGlobalIndex[primitive.Nodes[i].Identifier];
                     for (int j = 0; j < n; j++)
                     {
-                        int jIndex = mapNodeToGlobalIndex[primitive.Nodes[j].Index];
+                        int jIndex = mapNodeToGlobalIndex[primitive.Nodes[j].Identifier];
                         K[iIndex, jIndex] += i == j ? diagonal : offDiagonal;
                     }
                     // RHS — complete linearisation includes both T∞⁴ and -3×T_ref⁴ terms
@@ -159,7 +159,7 @@ namespace FiniteElementAnalysis.Solvers
         )
         {
 
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             INode[]? nodes = mesh.GetPrimitivesForBoundary(boundary)
                 ?.SelectMany(f => f.Nodes)
                 .GroupBy(n => n)
@@ -168,7 +168,7 @@ namespace FiniteElementAnalysis.Solvers
             if (nodes == null) return;
             foreach (INode node in nodes)
             {
-                int nodeIndex = mapNodeToGlobalIndex[node.Index];
+                int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
                 FixValueInUnknowns(K, rhs, nodeIndex, boundary.TemperatureK);
             }
         }
@@ -178,7 +178,7 @@ namespace FiniteElementAnalysis.Solvers
             double[] rhs)
         {
 
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             IBoundaryPrimitive[]? faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) return;
             foreach (IBoundaryPrimitive face in faces)
@@ -192,18 +192,18 @@ namespace FiniteElementAnalysis.Solvers
                 {
                     // If the heat flux convention in your system is positive for heat entering the domain,
                     // you might want to subtract the contribution instead.
-                    int nodeIndex = mapNodeToGlobalIndex[node.Index];
+                    int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
                     rhs[nodeIndex] += nodeContribution;
                 }
             }
 
         }
 
-        public override HeatConductionResult3D Solve(IMesh mesh, WorkingDirectoryManager workingDirectoryManager, string operationIdentifier = "default", DelegateApplySourceRegion[]? applySourceRegion_s = null, SolverMethod solverMethod = SolverMethod.BlockMatrixInversionGpuOnly, CompositeProgressHandler? progressHandler = null, FileCachedItem<CoreSolverResult>? cachedSolverResult = null, bool useCachedSolverResults = false)
+        public override HeatConductionResult Solve(IMesh mesh, WorkingDirectoryManager workingDirectoryManager, string operationIdentifier = "default", DelegateApplySourceRegion[]? applySourceRegion_s = null, SolverMethod solverMethod = SolverMethod.BlockMatrixInversionGpuOnly, CompositeProgressHandler? progressHandler = null, FileCachedItem<CoreSolverResult>? cachedSolverResult = null, bool useCachedSolverResults = false)
         {
             CoreSolverResult coreResult = _Solve(mesh, workingDirectoryManager, operationIdentifier, applySourceRegion_s,
                 solverMethod, progressHandler, cachedSolverResult, useCachedSolverResults);
-            return new HeatConductionResult3D(mesh, coreResult);
+            return new HeatConductionResult(mesh, coreResult);
 
         }
     }

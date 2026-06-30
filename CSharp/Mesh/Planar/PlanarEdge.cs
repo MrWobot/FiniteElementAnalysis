@@ -42,6 +42,8 @@ namespace FiniteElementAnalysis.Mesh.Planar
             }
         }
 
+        public double[] Centre =>[(Node1.X+Node2.X)/2, (Node1.Y+Node2.Y)/2];
+
         public PlanarEdge(
             PlanarNode node1,
             PlanarNode node2,

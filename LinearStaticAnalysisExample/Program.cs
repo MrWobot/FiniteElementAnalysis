@@ -11,8 +11,8 @@ using FiniteElementAnalysis.Mesh.Tetrahedral;
 using FiniteElementAnalysis.Boundaries.Statics;
 using FiniteElementAnalysis.Setup;
 using LinearStaticAnalysisExample;
-using FiniteElementAnalysis.Results.ThreeD;
 using FiniteElementAnalysis.Solvers;
+using FiniteElementAnalysis.Results;
 
 namespace LienarStaticAnalysisExample
 {
@@ -48,19 +48,19 @@ namespace LienarStaticAnalysisExample
                 globalMaximumTetrahedralVolumeConstraintMeters: 1e-5,
                 units: Units.Millimeters
             );
-            LinearStaticAnalysisSolver solver = new LinearStaticAnalysisSolver();
-            LinearStaticAnalysisResult3D result
+            LinearStaticAnalysisSolverBase solver = new LinearStaticAnalysisSolver3D();
+            LinearStaticAnalysisResult result
                          = solver.Solve(
                             setup3D.Mesh,
                             setup3D.WorkingDirectoryManager,
                             OPERATION_1,
                             cachedSolverResult: null);
             result.Print();
-            (double maxDisplacementX, double maxDisplacementY, double maxDisplacementZ)
+            double[] maxDisplacements
                 = result.CalculateMaxDisplacements();
-            Console.WriteLine("Max displacement X was: " + maxDisplacementX);
-            Console.WriteLine("Max displacement Y was: " + maxDisplacementY);
-            Console.WriteLine("Max displacement Z was: " + maxDisplacementZ);
+            Console.WriteLine("Max displacement X was: " + maxDisplacements[0]);
+            Console.WriteLine("Max displacement Y was: " + maxDisplacements[1]);
+            Console.WriteLine("Max displacement Z was: " + maxDisplacements[2]);
 
             PlyWriter.Write(
                 Path.Combine(setup3D.OutputDirectory, "displacements.ply"),
@@ -69,7 +69,7 @@ namespace LienarStaticAnalysisExample
                     new VectorFieldResult("displacement", result.Displacements, includeMagnitude:true),
                 }
             );
-            TetrahedralMesh displacedMesh = result.DisplaceMesh();
+            TetrahedralMesh displacedMesh = (TetrahedralMesh)result.DisplaceMesh();
             PlyWriter.Write(Path.Combine(setup3D.OutputDirectory, "displacedMesh.ply"), setup3D.Mesh);
             result.ComputeNodalNormalAndShearStressStrainAsSeperateVectors(
                 computeStress: true,

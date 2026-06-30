@@ -7,26 +7,24 @@ using Core.Maths.Matrices;
 using Core.Maths;
 using Logging;
 using FiniteElementAnalysis.Boundaries.Statics;
-using Core.Maths.Tensors;
 using Core.Maths.Vectors;
 using Core.Maths.IterativeSolvers.NewtonRaphson;
-using System.Threading;
 using Core.Maths.Tolerances;
-using FiniteElementAnalysis.Results.ThreeD;
 using FiniteElementAnalysis.Results;
 using FiniteElementAnalysis.Solvers.Bases;
 using FiniteElementAnalysis.Mesh.Interfaces;
 using Core.Exceptions;
+using FiniteElementAnalysis.Results.Bases;
 
 namespace FiniteElementAnalysis.Solvers
 {
-    public abstract class LinearStaticAnalysisSolverBase : SolverBaseSingleComponent<LinearStaticAnalysisResult3D>
+    public abstract class LinearStaticAnalysisSolverBase : SolverBaseSingleComponent<LinearStaticAnalysisResult>
     {
         protected LinearStaticAnalysisSolverBase(FieldDOFInfo fieldDOFInfo) : base(fieldDOFInfo)
         {
         }
 
-        public override LinearStaticAnalysisResult3D Solve(
+        public override LinearStaticAnalysisResult Solve(
             IMesh mesh,
             WorkingDirectoryManager workingDirectoryManager,
             string operationIdentifier = "default",
@@ -38,10 +36,10 @@ namespace FiniteElementAnalysis.Solvers
         {
             CoreSolverResult coreResult = _Solve(mesh, workingDirectoryManager, operationIdentifier, applySourceRegion_s, solverMethod,
                 progressHandler, cachedSolverResult, useCachedSolverResults);
-            return new LinearStaticAnalysisResult3D(mesh, coreResult);
+            return new LinearStaticAnalysisResult(mesh, coreResult);
         }
         /// <returns></returns>
-        public LinearStaticAnalysisResult3D SolveNonLinearIterative(
+        public LinearStaticAnalysisResult SolveNonLinearIterative(
             IMesh mesh,
             WorkingDirectoryManager workingDirectoryManager,
             NewtonRaphsonStoppingParametersMatrixContextualized newtonRaphsonStoppingParameters,
@@ -69,7 +67,7 @@ namespace FiniteElementAnalysis.Solvers
 
                 iterativeSolveHandle.DoStamp(out double[] rhs, out IBigMatrix K);
                 double[] f_init = rhs;//Force vector from the last iteration
-                LinearStaticAnalysisResult3D? currentResult = null;
+                LinearStaticAnalysisResult? currentResult = null;
                 int nIteration = 0;
                 nrSolution =
                     NewtonRaphsonMatrixSolver.Solve(f_init,
@@ -80,7 +78,7 @@ namespace FiniteElementAnalysis.Solvers
                     ) =>
                     {
                         CoreSolverResult coreSolverResult = iterativeSolveHandle.DoSolve()!;
-                        currentResult = new LinearStaticAnalysisResult3D(mesh, coreSolverResult);
+                        currentResult = new LinearStaticAnalysisResult(mesh, coreSolverResult);
                         currentResult.DisplaceMesh();
                         xAtEndOfIteration = coreSolverResult!.UnknownsVector;
                         //Do next stamp to retrieve f_ext early
@@ -193,7 +191,7 @@ namespace FiniteElementAnalysis.Solvers
 
                 foreach (INode node in primitive.Nodes)
                 {
-                    int globalNodeIndex = mesh.MapNodeIndexToGlobalIndex[node.Index];
+                    int globalNodeIndex = mesh.MapNodeIdentifierToGlobalIndex[node.Identifier];
                     for (int dof = 0; dof < _FieldDOFInfo.NDegreesOfFreedom; dof++)
                     {
                         rhs[globalNodeIndex * _FieldDOFInfo.NDegreesOfFreedom + dof]
@@ -235,7 +233,7 @@ namespace FiniteElementAnalysis.Solvers
 
                 foreach (INode node in primitive.Nodes)
                 {
-                    int globalNodeIndex = mesh.MapNodeIndexToGlobalIndex[node.Index];
+                    int globalNodeIndex = mesh.MapNodeIdentifierToGlobalIndex[node.Identifier];
                     for (int dof = 0; dof < _FieldDOFInfo.NDegreesOfFreedom; dof++)
                     {
                         rhs[globalNodeIndex * _FieldDOFInfo.NDegreesOfFreedom + dof]
@@ -244,10 +242,65 @@ namespace FiniteElementAnalysis.Solvers
                 }
             }
         }
-        protected abstract void ApplySurfaceTractionNeumannBoundary(
-            SurfaceTractionNeumannBoundaryBase boundary, IMesh mesh, double[] rhs);
-        protected abstract void ApplySurfaceForceNeumannBoundary(
-            SurfaceForceNeumannBoundaryBase boundary, IMesh mesh, double[] rhs);
+        protected void ApplySurfaceTractionNeumannBoundary(
+            SurfaceTractionNeumannBoundaryBase boundaryBase, IMesh iMesh, double[] rhs)
+        {
+            throw new NeverUsedOrDebuggedException();
+            /*
+            SurfaceTractionNeumannBoundary3D boundary = (SurfaceTractionNeumannBoundary3D)boundaryBase;
+            TetrahedralMesh mesh = (TetrahedralMesh)iMesh;
+            BoundaryFace[]? faces = mesh.GetFacesForBoundary(boundary);
+            if (faces == null || faces.Length == 0)
+                throw new InvalidOperationException("No faces found for boundary.");
+
+            foreach (BoundaryFace face in faces)
+            {
+                // Traction is force per unit area — each face contributes independently
+                // No totalArea fraction needed unlike SurfaceForceNeumannBoundary
+                Vector3D forcePerNode = boundary.Tractions * face.Area / face.Nodes.Length;
+
+                foreach (Node node in face.Nodes)
+                {
+                    int globalNodeIndex = mesh.MapNodeIndexToGlobalIndex[node.Index];
+                    rhs[globalNodeIndex * _FieldDOFInfo.NDegreesOfFreedom + 0] += forcePerNode.X;
+                    rhs[globalNodeIndex * _FieldDOFInfo.NDegreesOfFreedom + 1] += forcePerNode.Y;
+                    rhs[globalNodeIndex * _FieldDOFInfo.NDegreesOfFreedom + 2] += forcePerNode.Z;
+                }
+            }*/
+        }
+        protected void ApplySurfaceForceNeumannBoundary(
+            SurfaceForceNeumannBoundaryBase boundary, IMesh iMesh, double[] rhs)
+        {
+            throw new NeverUsedOrDebuggedException();
+            /*
+            TetrahedralMesh mesh = (TetrahedralMesh)iMesh;
+            BoundaryFace[]? faces = mesh.GetFacesForBoundary(boundary);
+            if (faces == null || faces.Length == 0)
+                throw new InvalidOperationException("No faces found for boundary.");
+
+            // Compute total surface area
+            double totalArea = faces.Sum(face => face.Area);
+            if (totalArea <= 0)
+                throw new InvalidOperationException("Total surface area must be greater than zero.");
+
+            SurfaceForceNeumannBoundary3D boundary3D = (SurfaceForceNeumannBoundary3D)boundary;
+
+            foreach (BoundaryFace face in faces)
+            {
+                double areaFraction = face.Area / totalArea;
+                Vector3D forcePerFace = boundary3D.Forces * areaFraction;
+                Vector3D forcePerNode = forcePerFace / face.Nodes.Length;
+
+                foreach (Node node in face.Nodes)
+                {
+                    int globalNodeIndex = mesh.MapNodeIndexToGlobalIndex[node.Index];
+                    // Translational DOFs only — standard linear tetrahedral has 3 DOF per node
+                    rhs[globalNodeIndex * _FieldDOFInfo.NDegreesOfFreedom + 0] += forcePerNode.X;
+                    rhs[globalNodeIndex * _FieldDOFInfo.NDegreesOfFreedom + 1] += forcePerNode.Y;
+                    rhs[globalNodeIndex * _FieldDOFInfo.NDegreesOfFreedom + 2] += forcePerNode.Z;
+                }
+            }*/
+        }
 
     }
 }

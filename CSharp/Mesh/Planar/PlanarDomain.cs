@@ -1,9 +1,13 @@
 ﻿using Core.Geometry;
 using Core.Graphics;
+using Core.Maths.Tensors;
+using Core.Trees;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Mesh.Interfaces;
 using FiniteElementAnalysis.Mesh.Parsing.MtlFiles;
 using FiniteElementAnalysis.Mesh.Planar.Thickness;
+using FiniteElementAnalysis.Mesh.Tetrahedral;
+
 namespace FiniteElementAnalysis.Mesh.Planar
 {
 
@@ -14,14 +18,14 @@ namespace FiniteElementAnalysis.Mesh.Planar
         public INode[] Nodes { get; }
         public IElement[] Elements { get; }
         public IBoundaryPrimitive[] Edges { get; }
-        private PlanarThicknessSourceBase _ThicknessSource;
+        public PlanarThicknessSourceBase ThicknessSource { get; }
         public PlanarDomain(BoundariesCollection boundaries, VolumesCollection volumes,
             PlanarThicknessSourceBase thicknessSource,
             PlanarNode[] nodes, PlanarSegment[] segments, PlanarEdge[] edges)
         {
             Boundaries = boundaries;
             Volumes = volumes;
-            _ThicknessSource = thicknessSource;
+            ThicknessSource = thicknessSource;
             Nodes = nodes;
             Edges = edges;
             Elements = segments;
@@ -95,7 +99,7 @@ namespace FiniteElementAnalysis.Mesh.Planar
 
 
         private Dictionary<int, int>? _MapNodeToGlobalIndex;
-        public Dictionary<int, int> MapNodeIndexToGlobalIndex
+        public Dictionary<int, int> MapNodeIdentifierToGlobalIndex
         {
             get
             {
@@ -103,7 +107,7 @@ namespace FiniteElementAnalysis.Mesh.Planar
                 int nodeIndex = 0;
                 if (_MapNodeToGlobalIndex == null)
                 {
-                    _MapNodeToGlobalIndex = Nodes.ToDictionary(n => n.Index, n => nodeIndex++);
+                    _MapNodeToGlobalIndex = Nodes.ToDictionary(n => n.Identifier, n => nodeIndex++);
                 }
                 return _MapNodeToGlobalIndex;
             }
@@ -117,7 +121,7 @@ namespace FiniteElementAnalysis.Mesh.Planar
                 if (_MapNodeToElementsBelongsTo == null)
                 {
                     _MapNodeToElementsBelongsTo = new Dictionary<int, List<IElement>>();
-                    if (Elements.GroupBy(e => e.Index).Where(g => g.Count() > 1).Any())
+                    if (Elements.GroupBy(e => e.Identifier).Where(g => g.Count() > 1).Any())
                     {
 
                     }
@@ -125,11 +129,11 @@ namespace FiniteElementAnalysis.Mesh.Planar
                     {
                         foreach (var node in element.Nodes)
                         {
-                            if (!_MapNodeToElementsBelongsTo.ContainsKey(node.Index))
+                            if (!_MapNodeToElementsBelongsTo.ContainsKey(node.Identifier))
                             {
-                                _MapNodeToElementsBelongsTo[node.Index] = new List<IElement>();
+                                _MapNodeToElementsBelongsTo[node.Identifier] = new List<IElement>();
                             }
-                            _MapNodeToElementsBelongsTo[node.Index].Add(element);
+                            _MapNodeToElementsBelongsTo[node.Identifier].Add(element);
                         }
                     }
                 }
@@ -138,6 +142,8 @@ namespace FiniteElementAnalysis.Mesh.Planar
         }
 
         public bool IsPartOfResult { get; set; }
+
+        public int NodePositionLength => 2;
 
         public void ApplyColours(MtlFile file)
         {
@@ -163,7 +169,7 @@ namespace FiniteElementAnalysis.Mesh.Planar
 
         public double GetThickness(double[] position)
         {
-            return _ThicknessSource.GetThickness(position);
+            return ThicknessSource.GetThickness(position);
         }
 
         public bool HasNonLinearBoundaries()
@@ -190,6 +196,70 @@ namespace FiniteElementAnalysis.Mesh.Planar
                 return primitives;
             }
             return new IBoundaryPrimitive[0];
+        }
+        public IMesh Clone()
+        {
+            var createNewNode = (PlanarNode oldNode) => new PlanarNode(oldNode.X, oldNode.Y, oldNode.Identifier);
+            var mapOldNodeToNewNode = new Dictionary<PlanarNode, PlanarNode>();
+            int expectedNodeIndex = 0;
+            var newNodes = new List<PlanarNode>();
+            foreach (var oldNode in Nodes.Cast<PlanarNode>())
+            {
+                PlanarNode newNode = createNewNode(oldNode);
+                if (expectedNodeIndex != oldNode.Identifier || expectedNodeIndex != newNode.Identifier)
+                {
+                    throw new Exception("Identifier didn't match?");
+                }
+                mapOldNodeToNewNode[oldNode] = newNode;
+                newNodes.Add(newNode);
+                expectedNodeIndex++;
+            }
+            var getNewNodeFromOld = (INode oldNode) => mapOldNodeToNewNode[(PlanarNode)oldNode];
+            var newElements = new List<PlanarSegment>();
+            var mapOldElementToNewElement = new Dictionary<PlanarSegment, PlanarSegment>();
+            int expectedElementIndex = 0;
+            foreach (var oldElement in Elements.Cast<PlanarSegment>())
+            {
+                PlanarSegment newElement = new PlanarSegment(
+                    oldElement.Nodes.Select(getNewNodeFromOld).ToArray(),
+                    oldElement.Identifier,
+                    oldElement.VolumeBelongsTo);
+                if (expectedElementIndex != oldElement.Identifier || expectedElementIndex != newElement.Identifier)
+                {
+                    throw new Exception("Identifier didn't match?");
+                }
+                mapOldElementToNewElement[oldElement] = newElement;
+                newElements.Add(newElement);
+                expectedElementIndex++;
+            }
+            var getNewElementFromOld = (IElement oldElement) => mapOldElementToNewElement[(PlanarSegment)oldElement];
+            PlanarEdge[] newBoundaryEdges = Edges.Cast<PlanarEdge>()
+                .Select(b => new PlanarEdge(
+                    b.Node1,
+                    b.Node2,
+                    b.Boundary,
+                    b.Elements.Select(getNewElementFromOld).ToArray()
+                ))
+                .ToArray();
+            return new PlanarDomain(Boundaries, Volumes, ThicknessSource, newNodes.ToArray(), newElements.ToArray(), newBoundaryEdges);
+        }
+
+        private BVH2D<PlanarSegment>? _ElementsBVHTree;
+        public BVH2D<PlanarSegment> ElementsBVHTree
+        {
+            get
+            {
+                if (_ElementsBVHTree == null)
+                {
+                    _ElementsBVHTree = new BVH2D<PlanarSegment>(Elements.Cast<PlanarSegment>().ToList(),
+                        e => e.BoundingRectangle, (e, p) => e.IsPointInside(p.ToArray()));
+                }
+                return _ElementsBVHTree;
+            }
+        }
+        public IEnumerable<IElement> GetElementsContainingPoint(double[] point)
+        {
+            return ElementsBVHTree.QueryBVH(new Vector2D(point[0], point[1]));
         }
     }
 }

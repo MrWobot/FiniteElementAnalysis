@@ -5,14 +5,14 @@ using FiniteElementAnalysis.SourceRegions;
 using Core.Pool;
 using Core.Maths.Matrices;
 using FiniteElementAnalysis.Boundaries.Electrostatic;
-using FiniteElementAnalysis.Results.ThreeD;
-using FiniteElementAnalysis.Results;
 using FiniteElementAnalysis.Solvers.Bases;
 using FiniteElementAnalysis.Mesh.Interfaces;
+using FiniteElementAnalysis.Results.Bases;
+using FiniteElementAnalysis.Results;
 
 namespace FiniteElementAnalysis.Solvers
 {
-    public class ElectrostaticsSolver : ScalarSolver<ElectrostaticsResult3D>
+    public class ElectrostaticsSolver : ScalarSolver<ElectrostaticsResult>
     {
         public ElectrostaticsSolver() : base(FieldOperationType.Gradient)
         {
@@ -55,7 +55,7 @@ namespace FiniteElementAnalysis.Solvers
             double[] rhs
         )
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             INode[]? nodes = mesh.GetPrimitivesForBoundary(boundary)?
                 .SelectMany(p => p.Nodes)
                 .GroupBy(n => n)
@@ -64,7 +64,7 @@ namespace FiniteElementAnalysis.Solvers
             if (nodes == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces or nodes.");
             foreach (INode node in nodes)
             {
-                int nodeIndex = mapNodeToGlobalIndex[node.Index];
+                int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
                 FixValueInUnknowns(K, rhs, nodeIndex, boundary.Potential);
             }
         }
@@ -72,7 +72,7 @@ namespace FiniteElementAnalysis.Solvers
         private static void ApplyFixedNormalElectricFieldNeumannBoundary(FixedNormalElectricFieldNeumannBoundary boundary,
             IMesh mesh, double[] rhs)
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             IBoundaryPrimitive[]? faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces.");
             foreach (IBoundaryPrimitive primitive in faces)
@@ -84,7 +84,7 @@ namespace FiniteElementAnalysis.Solvers
                     * ((ElectrostaticsVolume)primitive.Elements[0].VolumeBelongsTo).TotalPermittivity;
                 foreach (INode node in primitive.Nodes)
                 {
-                    int nodeIndex = mapNodeToGlobalIndex[node.Index];
+                    int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
                     rhs[nodeIndex] += nodeContribution;
                 }
             }
@@ -93,7 +93,7 @@ namespace FiniteElementAnalysis.Solvers
         private static void ApplyFixedSurfaceChargeDensityNeumannBoundary(FixedSurfaceChargeDensityNeumannBoundary boundary,
             IMesh mesh, double[] rhs)
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             IBoundaryPrimitive[]? faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces.");
             foreach (IBoundaryPrimitive primitive in faces)
@@ -103,7 +103,7 @@ namespace FiniteElementAnalysis.Solvers
                 double nodeContribution = primitive.Measure * thicknessIntegral / primitive.Nodes.Length * boundary.ChargeDensityCoulombsPerMeterSquared;
                 foreach (INode node in primitive.Nodes)
                 {
-                    int nodeIndex = mapNodeToGlobalIndex[node.Index];
+                    int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
                     rhs[nodeIndex] += nodeContribution;
                 }
             }
@@ -113,11 +113,18 @@ namespace FiniteElementAnalysis.Solvers
         private static void ApplyFloatingPotentialBoundary(FloatingPotentialBoundary boundary,
             IMesh mesh, IBigMatrix K, double[] rhs)
         {
+            /*TODO ApplyFloatingPotentialBoundary — the coeff 1.0 / boundaryNodes.Length and the way it's stamped
+             * into K looks like it's enforcing an average potential constraint rather than a 
+             * true floating equipotential. Worth making sure that's the intended formulation — a floating 
+             * conductor should have uniform potential across all its nodes, which typically needs 
+             * a Lagrange multiplier coupling all nodes together, not just a uniform coefficient.
+             * If this is already tested and working, ignore me.
+             * */
             if (!boundary.IndicesHaveBeenAssigned || boundary.IndicesAssigned!.Length != 1)
                 throw new InvalidOperationException("FloatingPotentialBoundary must have one assigned index before application.");
 
             int lambdaIndex = boundary.IndicesAssigned[0];
-            var mapNodeToGlobalIndex = mesh.MapNodeIndexToGlobalIndex;
+            var mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             var faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces.");
 
@@ -127,7 +134,7 @@ namespace FiniteElementAnalysis.Solvers
             double coeff = 1.0 / boundaryNodes.Length;
             foreach (INode node in boundaryNodes)
             {
-                int nodeIndex = mapNodeToGlobalIndex[node.Index];
+                int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
                 K[nodeIndex, lambdaIndex] += coeff;
                 K[lambdaIndex, nodeIndex] += coeff;
             }
@@ -136,7 +143,7 @@ namespace FiniteElementAnalysis.Solvers
         }
 
 
-        public override ElectrostaticsResult3D Solve(IMesh mesh, WorkingDirectoryManager workingDirectoryManager,
+        public override ElectrostaticsResult Solve(IMesh mesh, WorkingDirectoryManager workingDirectoryManager,
             string operationIdentifier = "default", DelegateApplySourceRegion[]? applySourceRegion_s = null,
             SolverMethod solverMethod = SolverMethod.BlockMatrixInversionGpuOnly,
             CompositeProgressHandler? progressHandler = null,
@@ -145,7 +152,7 @@ namespace FiniteElementAnalysis.Solvers
         {
             CoreSolverResult coreResult = _Solve(mesh, workingDirectoryManager, operationIdentifier, applySourceRegion_s,
                 solverMethod, progressHandler, cachedSolverResult, useCachedSolverResults);
-            return new ElectrostaticsResult3D(mesh, coreResult);
+            return new ElectrostaticsResult(mesh, coreResult);
         }
     }
 }

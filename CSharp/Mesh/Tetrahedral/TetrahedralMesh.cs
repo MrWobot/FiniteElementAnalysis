@@ -1,7 +1,9 @@
 ﻿using Core.Collections;
+using Core.Maths.Tensors;
 using Core.Trees;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Mesh.Interfaces;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace FiniteElementAnalysis.Mesh.Tetrahedral
@@ -72,18 +74,18 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 return _MapElementIdentifierToElement;
             }
         }*/
-        private Dictionary<int, int>? _MapNodeToGlobalIndex;
-        public Dictionary<int, int> MapNodeIndexToGlobalIndex
+        private Dictionary<int, int>? _MapNodeIdentifierToGlobalIndex;
+        public Dictionary<int, int> MapNodeIdentifierToGlobalIndex
         {
             get
             {
 
                 int nodeIndex = 0;
-                if (_MapNodeToGlobalIndex == null)
+                if (_MapNodeIdentifierToGlobalIndex == null)
                 {
-                    _MapNodeToGlobalIndex = Nodes.ToDictionary(n => n.Index, n => nodeIndex++);
+                    _MapNodeIdentifierToGlobalIndex = Nodes.ToDictionary(n => n.Identifier, n => nodeIndex++);
                 }
-                return _MapNodeToGlobalIndex;
+                return _MapNodeIdentifierToGlobalIndex;
             }
         }
         /*
@@ -103,18 +105,21 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             }
         }*/
 
-        private BVH<TetrahedronElement>? _ElementsBVHTree;
-        public BVH<TetrahedronElement> ElementsBVHTree
+        private BVH3D<TetrahedronElement>? _ElementsBVHTree;
+        public BVH3D<TetrahedronElement> ElementsBVHTree
         {
             get
             {
                 if (_ElementsBVHTree == null)
                 {
-                    _ElementsBVHTree = new BVH<TetrahedronElement>(Elements.Cast<TetrahedronElement>().ToList(),
+                    _ElementsBVHTree = new BVH3D<TetrahedronElement>(Elements.Cast<TetrahedronElement>().ToList(),
                         e => e.BoundingCuboid, (e, p) => e.IsPointInside(p));
                 }
                 return _ElementsBVHTree;
             }
+        }
+        public IEnumerable<IElement> GetElementsContainingPoint(double[] point) {
+            return ElementsBVHTree.QueryBVH(new Vector3D(point[0], point[1], point[2]));
         }
 
         // New property for lazy loading of the map of nodes to elements they belong to
@@ -126,7 +131,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 if (_MapNodeToElementsBelongsTo == null)
                 {
                     _MapNodeToElementsBelongsTo = new Dictionary<int, List<IElement>>();
-                    if (Elements.GroupBy(e => e.Index).Where(g => g.Count() > 1).Any())
+                    if (Elements.GroupBy(e => e.Identifier).Where(g => g.Count() > 1).Any())
                     {
 
                     }
@@ -134,28 +139,31 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                     {
                         foreach (var node in element.Nodes)
                         {
-                            if (!_MapNodeToElementsBelongsTo.ContainsKey(node.Index))
+                            if (!_MapNodeToElementsBelongsTo.ContainsKey(node.Identifier))
                             {
-                                _MapNodeToElementsBelongsTo[node.Index] = new List<IElement>();
+                                _MapNodeToElementsBelongsTo[node.Identifier] = new List<IElement>();
                             }
-                            _MapNodeToElementsBelongsTo[node.Index].Add(element);
+                            _MapNodeToElementsBelongsTo[node.Identifier].Add(element);
                         }
                     }
                 }
                 return _MapNodeToElementsBelongsTo;
             }
         }
+
+        public int NodePositionLength => 3;
+
         /*
-        public INode[] GetNeighbouringNodes(Node node)
-        {
-            List<IElement> elementsBelongsTo = MapNodeToElementsBelongsTo[node.Index];
-            return elementsBelongsTo
-                .SelectMany(e => e.Nodes)
-                .GroupBy(n => n.Index)
-                .Select(g => g.First())
-                .Where(n => n.Index != node.Index)
-                .ToArray();
-        }*/
+public INode[] GetNeighbouringNodes(Node node)
+{
+List<IElement> elementsBelongsTo = MapNodeToElementsBelongsTo[node.Index];
+return elementsBelongsTo
+.SelectMany(e => e.Nodes)
+.GroupBy(n => n.Index)
+.Select(g => g.First())
+.Where(n => n.Index != node.Index)
+.ToArray();
+}*/
 
         public bool HasNonLinearBoundaries()
         {
@@ -167,7 +175,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
 
         public Node[]? GetNodesForBoundary(Boundary boundary)
         {
-            return GetFacesForBoundary(boundary)?.SelectMany(b => b.Nodes).GroupBy(n => n).Select(g => g.First()).ToArray();
+            return GetFacesForBoundary(boundary)?.SelectMany(b => b.Nodes).GroupBy(n => n).Select(g => g.First()).Cast<Node>().ToArray();
         }
 
         public BoundaryFace[]? GetFacesForBoundary(Boundary boundary)
@@ -199,7 +207,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             .Where(v => v.newVolume != null)
             .ToDictionary(v => v.oldVolume, v => v.newVolume!);
 
-            Func<string, Boundary, Boundary> getNewBoundaryFromOld = (operationIdentifier, oldBoundary) =>
+            Func<Boundary, Boundary?> getNewBoundaryFromOld = (oldBoundary) =>
             {
                 if (oldBoundary.BoundaryConditionType.Equals(BoundaryConditionType.OperationSpecific))
                 {
@@ -207,56 +215,105 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 }
                 return oldBoundary;
             };
+            Func<Volume, Volume?> getNewVolumeFromOld = (oldVolume) =>
+            {
+                mapOldVolumeToNewVolume.TryGetValue(oldVolume, out Volume? volume);
+                return volume;
+            };
 
-            Dictionary<Node, Node> mapOldNodeToNewNode = new Dictionary<Node, Node>();
+            var mapOldNodeToNewNode = new Dictionary<Node, Node>();
             Func<Node, Node> getNewNodeFromOld = (oldNode) =>
             {
                 if (mapOldNodeToNewNode.TryGetValue(oldNode, out Node? newNode))
                 {
                     return newNode;
                 }
-                newNode = new Node(oldNode.Index, oldNode.X, oldNode.Y, oldNode.Z, oldNode.Attributes);
+                newNode = new Node(oldNode.Identifier, oldNode.X, oldNode.Y, oldNode.Z, oldNode.Attributes);
                 mapOldNodeToNewNode[oldNode] = newNode;
                 return newNode;
             };
 
-            Dictionary<TetrahedronElement, TetrahedronElement> mapOldElementToNewElement = Elements
-                .Where(e => mapOldVolumeToNewVolume.ContainsKey(e.VolumeBelongsTo))
-                .Cast<TetrahedronElement>()
-                .ToDictionary(e => e, e => new TetrahedronElement(
-                    e.Index,
-                    e.Nodes.Cast<Node>().Select(getNewNodeFromOld).ToArray(),
-                    mapOldVolumeToNewVolume[e.VolumeBelongsTo])
-                );
-
-            var newNodes = mapOldNodeToNewNode.Values.ToArray();
-            var newBoundaryFaces = BoundaryFaces
-                .Select(f =>
-                    new
+            var mapOldElementToNewElement = new Dictionary<TetrahedronElement, TetrahedronElement>();
+            var newElements = new List<TetrahedronElement>();
+            foreach(TetrahedronElement oldElement in Elements.Cast<TetrahedronElement>()) {
+                Volume? newVolume = getNewVolumeFromOld(oldElement.VolumeBelongsTo);
+                if (newVolume == null) continue;
+                TetrahedronElement newElement = new TetrahedronElement(
+                    oldElement.Identifier,
+                    oldElement.Nodes.Cast<Node>().Select(getNewNodeFromOld).ToArray(),
+                    newVolume!);
+                mapOldElementToNewElement[oldElement] = newElement;
+                newElements.Add(newElement);
+            }
+            var newBoundaryFaces = new List<BoundaryFace>();
+            foreach (BoundaryFace oldBoundaryFace in BoundaryFaces)
+            {
+                Boundary? newBoundary = getNewBoundaryFromOld(oldBoundaryFace.Boundary);
+                if (newBoundary == null) continue;
+                TetrahedronElement[] newElementsForBoundary = oldBoundaryFace
+                    .Elements
+                    .Cast<TetrahedronElement>()
+                    .Select(oldElement =>
                     {
-                        face = f,
-                        newElementsForBoundaryFace = f.Elements
-                            .Where(e => mapOldElementToNewElement.ContainsKey(e))
-                            .Select(e => mapOldElementToNewElement[e]).ToArray()
-                    })
-                .Where(o => o.newElementsForBoundaryFace.Any())
-                .Select(o => new BoundaryFace(
-                    o.face.Marker,
-                    o.face.Nodes.Select(getNewNodeFromOld).ToArray(),
-                    getNewBoundaryFromOld(operationIdentifier, o.face.Boundary),
-                    o.newElementsForBoundaryFace))
-                .ToArray();
-
-            var newElements = mapOldElementToNewElement.Values.ToArray();
+                        mapOldElementToNewElement.TryGetValue(oldElement, out TetrahedronElement? newElementForBoundary);
+                        return newElementForBoundary;
+                    }).Where(n => n != null)
+                    .Select(e=>e!)
+                    .ToArray();
+                if (!newElementsForBoundary.Any()) continue;
+                BoundaryFace newBoundaryFace = new BoundaryFace(
+                    oldBoundaryFace.Nodes.Cast<Node>().Select(getNewNodeFromOld).ToArray(),
+                    newBoundary!,
+                    newElementsForBoundary
+                );
+                newBoundaryFaces.Add(newBoundaryFace);
+            }
             BoundariesCollection newBoundaries = new BoundariesCollection(
                 newBoundaryFaces.Select(f=>f.Boundary).GroupBy(b=>b).Select(g=>g.First()).ToArray());
             VolumesCollection newVolumes = new VolumesCollection(mapOldVolumeToNewVolume.Values.ToArray());
 
-            return new TetrahedralMesh(newBoundaries, newVolumes, newNodes, newBoundaryFaces, newElements, null);
+            return new TetrahedralMesh(newBoundaries, newVolumes, mapOldNodeToNewNode.Values.ToArray(), newBoundaryFaces.ToArray(), 
+                newElements.ToArray(), null);
+        }
+        public IMesh Clone() {
+            return CloneT();
+        }
+        public TetrahedralMesh CloneT(
+            Func<Node, Node>? createNewNode = null,
+            Func<TetrahedronElement, TetrahedronElement>? createNewElement = null)
+        {
+            if (createNewNode == null) createNewNode = (Node n) => new Node(n.Identifier, n.X, n.Y, n.Z, n.Attributes);
+            var mapOldNodeToNewNode = new Dictionary<Node, Node>();
+            var newNodes = new List<Node>();
+            foreach (var oldNode in Nodes.Cast<Node>()) {
+                Node newNode = createNewNode(oldNode);
+                mapOldNodeToNewNode[oldNode] = newNode;
+                newNodes.Add(newNode);
+            }
+            Func<Node, Node> getNewNodeFromOld = (oldNode) =>mapOldNodeToNewNode[oldNode];
+            if (createNewElement == null) createNewElement = (TetrahedronElement e) => new TetrahedronElement(e.Identifier, e.Nodes.Cast<Node>().Select(getNewNodeFromOld).ToArray(), e.VolumeBelongsTo);
+            var newElements = new List<TetrahedronElement>();
+            var mapOldElementToNewElement = new Dictionary<TetrahedronElement, TetrahedronElement>();
+            foreach (var oldElement in Elements.Cast<TetrahedronElement>()) {
+                TetrahedronElement newElement = createNewElement(oldElement);
+                mapOldElementToNewElement[oldElement] = newElement;
+                newElements.Add(newElement);
+            }
+            Func<TetrahedronElement, TetrahedronElement> getNewElementFromOld = (oldElement)=>mapOldElementToNewElement[oldElement];
+
+            BoundaryFace[] newBoundaryFaces = BoundaryFaces
+                .Select(b => new BoundaryFace(
+                    b.Nodes.Cast<Node>().Select(getNewNodeFromOld).ToArray(),
+                    b.Boundary,
+                    b.Elements.Cast<TetrahedronElement>().Select(getNewElementFromOld).ToArray()
+                 ))
+                .ToArray();
+
+            return new TetrahedralMesh(Boundaries, Volumes, newNodes.ToArray(), newBoundaryFaces, newElements.ToArray(), null); ;
         }
 
         public TetrahedralMesh(BoundariesCollection boundaries, VolumesCollection volumes, Node[] nodes,
-            BoundaryFace[] boundaryFaces, TetrahedronElement[] elements, BVH<TetrahedronElement>? elementsBVH)
+            BoundaryFace[] boundaryFaces, TetrahedronElement[] elements, BVH3D<TetrahedronElement>? elementsBVH)
         {
             Boundaries = boundaries;
             Volumes = volumes;
@@ -292,7 +349,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                     Node nodeB = elementFace[1];
                     Node nodeC = elementFace[2];
                     if (mapNodeIdentifiersIncreasingToFace.TryGetValue(
-                        nodeA.Index, nodeB.Index, nodeC.Index, out TriangleFaceBase? face))
+                        nodeA.Identifier, nodeB.Identifier, nodeC.Identifier, out TriangleFaceBase? face))
                     {
                         if (face == null) continue;
                         face.AddElement(tetrahedronElement);
@@ -300,7 +357,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                     else
                     {
                         face = new NonBoundaryFace(elementFace, tetrahedronElement);
-                        mapNodeIdentifiersIncreasingToFace.Map(nodeA.Index, nodeB.Index, nodeC.Index, face);
+                        mapNodeIdentifiersIncreasingToFace.Map(nodeA.Identifier, nodeB.Identifier, nodeC.Identifier, face);
                         nonBoundaryFaces.Add((NonBoundaryFace)face);
                     }
                 }

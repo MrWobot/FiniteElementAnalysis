@@ -11,7 +11,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
 
     public class TetrahedronElement:IElement
     {
-        public int Index { get; }
+        public int Identifier { get; }
         public INode[] Nodes { get; }
         public Volume VolumeBelongsTo { get; }
 
@@ -24,7 +24,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         {
             get
             {
-                return Nodes.OrderBy(n => n.Index).Cast<Node>() .ToArray();
+                return Nodes.OrderBy(n => n.Identifier).Cast<Node>() .ToArray();
             }
         }
         public int[] NodeIdentifiersLowToHigh
@@ -32,7 +32,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             get
             {
 
-                return Nodes.Select(n => n.Index).OrderBy(i => i).ToArray();
+                return Nodes.Select(n => n.Identifier).OrderBy(i => i).ToArray();
             }
         }
         public double ElementVolume
@@ -47,7 +47,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         {
             get
             {
-                int[] identifiers = Nodes.OrderBy(n => n.Index).Select(n => n.Index).ToArray();
+                int[] identifiers = Nodes.OrderBy(n => n.Identifier).Select(n => n.Identifier).ToArray();
                 return new int[][] {
                     new int[] { identifiers[0], identifiers[1], identifiers[2] },
                     new int[] { identifiers[0], identifiers[1], identifiers[3]  },
@@ -301,7 +301,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             }
         }
         #endregion BMatrices
-
+        /*
         // Property to hold integration points
         private List<IntegrationPoint>? _IntegrationPoints;
         public List<IntegrationPoint> IntegrationPoints
@@ -319,7 +319,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 }
                 return _IntegrationPoints;
             }
-        }
+        }*/
         /*
         private TriangleElementFace[]? _Faces;
         public TriangleElementFace[] Faces { 
@@ -333,12 +333,12 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         }*/
 
         private double? _SignedVolumeMe;
-        public TetrahedronElement(int index, Node[] nodes, Volume volume)
+        public TetrahedronElement(int identifier, Node[] nodes, Volume volume)
         {
-            if (index < 0) throw new ArgumentException($"index cannot be less than zero. Received value {index}");
+            if (identifier < 0) throw new ArgumentException($"identifier cannot be less than zero. Received value {identifier}");
             if (nodes.Length != 4)
                 throw new ArgumentException($"Expected four nodes. Received {nodes.Length}");
-            Index = index;
+            Identifier = identifier;
             Nodes = nodes;
             VolumeBelongsTo = volume;
         }
@@ -383,12 +383,20 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             }
         }
 
-        public Vector3D GetCentroid()
+        public double[] Centroid
         {
-            double x = (NodeA.X + NodeB.X + NodeC.X + NodeD.X) / 4.0;
-            double y = (NodeA.Y + NodeB.Y + NodeC.Y + NodeD.Y) / 4.0;
-            double z = (NodeA.Z + NodeB.Z + NodeC.Z + NodeD.Z) / 4.0;
-            return new Vector3D(x, y, z);
+            get
+            {
+                double x = (NodeA.X + NodeB.X + NodeC.X + NodeD.X) / 4.0;
+                double y = (NodeA.Y + NodeB.Y + NodeC.Y + NodeD.Y) / 4.0;
+                double z = (NodeA.Z + NodeB.Z + NodeC.Z + NodeD.Z) / 4.0;
+                return [x, y, z];
+            }
+        }
+
+        public bool IsPointInside(double[] point)
+        {
+            return IsPointInside(new Vector3D(point));
         }
         public bool IsPointInside(Vector3D p)
         {
@@ -440,6 +448,9 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         {
             double[] value = InterpolateValueAtPoint(point, 1);
             return value[0];
+        }
+        public double[] InterpolateValueAtPoint(double[] point, int nDegreesFreedom) {
+            return InterpolateValueAtPoint(new Vector3D(point), nDegreesFreedom);
         }
         public double[] InterpolateValueAtPoint(Vector3D point, int nDegreesFreedom)
         {
@@ -647,12 +658,12 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         public override bool Equals(object? obj)
         {
             return obj is TetrahedronElement element &&
-                   Index == element.Index;
+                   Identifier == element.Identifier;
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Index);
+            return HashCode.Combine(Identifier);
         }
     }
 }

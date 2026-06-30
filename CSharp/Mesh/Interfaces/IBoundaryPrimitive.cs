@@ -12,5 +12,6 @@ namespace FiniteElementAnalysis.Mesh.Interfaces
         public double Measure { get; }
         public double[] UnitNormal { get; }
         public Boundary Boundary { get; }
+        public double[] Centre { get; }
     }
 }

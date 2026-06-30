@@ -1,5 +1,6 @@
 ﻿using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Fields;
+using FiniteElementAnalysis.Mesh.Interfaces;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
 using FiniteElementAnalysis.MeshGeneration;
 using System.Text.RegularExpressions;
@@ -63,14 +64,14 @@ namespace FiniteElementAnalysis.Ply
             TetrahedralMesh mesh, params FieldResult[] fieldResults)
         {
 
-            Node[] nodes = mesh.Nodes;
+            Node[] nodes = mesh.Nodes.Cast<Node>().ToArray();
             int nodesLength = nodes.Length;
-            BoundaryFace[] faces = mesh.AllFaces;
+            TriangleFaceBase[] faces = mesh.AllFaces;
             HashSet<Volume> volumesIncluded = new HashSet<Volume>();
             foreach (var element in mesh.Elements)
             {
-                if (element.VolumeIsAPartOf == null) throw new NullReferenceException();
-                volumesIncluded.Add(element.VolumeIsAPartOf);
+                if (element.VolumeBelongsTo == null) throw new NullReferenceException();
+                volumesIncluded.Add(element.VolumeBelongsTo);
             }
 
             byte[][] colours = ColourGenerator.GetNWellSpacedColours(volumesIncluded.Count());
@@ -78,23 +79,23 @@ namespace FiniteElementAnalysis.Ply
             var mapVolumeToColor = volumesIncluded.ToDictionary(v => v, v => colours[colourIndex++]);
             Func<Volume, byte[]> getVolumeColour = (volume) => mapVolumeToColor[volume];
             var mapNodeIdentifierToColour = mesh.Elements.SelectMany(e => e.Nodes.Select(n => new { node = n, element = e }))
-                .GroupBy(o => o.node.Index)
+                .GroupBy(o => o.node.Identifier)
                 .Select(g => new
                 {
-                    nodeIdentifier = g.First().node.Index,
+                    nodeIdentifier = g.First().node.Identifier,
                     volume = g
-                    .Select(o => o.element.VolumeIsAPartOf).GroupBy(v => v)
+                    .Select(o => o.element.VolumeBelongsTo).GroupBy(v => v)
                     .OrderByDescending(vg => vg.Count())
                     .First().First()
                 })
                 .ToDictionary(o => o.nodeIdentifier, o => getVolumeColour(o.volume!));
-            byte[][] nodeColors = nodes.Select(n => mapNodeIdentifierToColour[n.Index]).ToArray();
+            byte[][] nodeColors = nodes.Select(n => mapNodeIdentifierToColour[n.Identifier]).ToArray();
             string? directoryPath = Path.GetDirectoryName(filePath);
             if (directoryPath == null)
                 throw new ArgumentException($"Invalid file path \"{filePath}\"");
             Directory.CreateDirectory(directoryPath);
             int nodeIndex = 0;
-            Dictionary<Node, int> mapNodeToIndex = nodes.ToDictionary(n => n, n => nodeIndex++);
+            Dictionary<INode, int> mapNodeToIndex = nodes.ToDictionary(n => (INode)n, n => nodeIndex++);
             using (var writer = new StreamWriter(File.Open(filePath, FileMode.Create)))
             {
                 Action<string> writeString = (str) => writer.Write(str);
@@ -179,7 +180,7 @@ namespace FiniteElementAnalysis.Ply
                 throw new ArgumentException($"Invalid file path \"{filePath}\"");
             Directory.CreateDirectory(directoryPath);
             int nodeIndex = 0;
-            Dictionary<Node, int> mapNodeToIndex = nodes.ToDictionary(n => n, n => nodeIndex++);
+            Dictionary<INode, int> mapNodeToIndex = nodes.ToDictionary(n => (INode)n, n => nodeIndex++);
             using (var writer = new StreamWriter(File.Open(filePath, FileMode.Create)))
             {
                 Action<string> writeString = (str) => writer.Write(str);

@@ -7,7 +7,7 @@ namespace FiniteElementAnalysis.Mesh.Planar
     {
         private List<PlanarSegment>? _SegmentsBelongsTo = null;
         public List<PlanarSegment>? SegmentsBelongsTo { get { return _SegmentsBelongsTo; } }
-        public int Index { get; }
+        public int Identifier { get; }
 
         public double[] Position => ToArray();
 
@@ -16,7 +16,7 @@ namespace FiniteElementAnalysis.Mesh.Planar
         public PlanarNode(double x, double y, int index)
             : base(x, y)
         {
-            Index = index;
+            Identifier = index;
         }
         public void AddBelongsTo(PlanarSegment segment)
         {

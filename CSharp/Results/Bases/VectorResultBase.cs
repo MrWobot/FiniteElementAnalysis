@@ -1,6 +1,6 @@
-﻿using FiniteElementAnalysis.Mesh.Interfaces;;
+﻿using FiniteElementAnalysis.Mesh.Interfaces;
 
-namespace FiniteElementAnalysis.Results.ThreeD
+namespace FiniteElementAnalysis.Results.Bases
 {
     public abstract class VectorResultBase : ResultBase
     {
@@ -10,8 +10,8 @@ namespace FiniteElementAnalysis.Results.ThreeD
         {
             foreach (INode node in mesh.Nodes)
             {
-                if (node.Values == null) throw new Exception($"{nameof(node.Values)} was null for node at index {node.Index}");
-                _MapNodeIdentifierToResultValue[node.Index] = node.Values!;
+                if (node.Values == null) throw new Exception($"{nameof(node.Values)} was null for node at index {node.Identifier}");
+                _MapNodeIdentifierToResultValue[node.Identifier] = node.Values!;
             }
         }
     }

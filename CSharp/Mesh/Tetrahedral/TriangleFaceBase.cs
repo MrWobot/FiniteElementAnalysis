@@ -1,12 +1,14 @@
 ﻿using Core.Maths;
 using Core.Maths.Tensors;
+using FiniteElementAnalysis.Boundaries;
+using FiniteElementAnalysis.Mesh.Interfaces;
 
 namespace FiniteElementAnalysis.Mesh.Tetrahedral
 {
 
     public class TriangleFaceBase : FaceBase
     {
-        public TetrahedronElement[] Elements { get; private set; }
+        public IElement[] Elements { get; private set; }
         public void AddElement(TetrahedronElement element)
         {
             var oldElements = Elements;
@@ -14,16 +16,16 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             Array.Copy(oldElements, Elements, oldElements.Length);
             Elements[oldElements.Length] = element;
         }
-        public Node NodeA { get { return Nodes[0]; } }
-        public Node NodeB { get { return Nodes[1]; } }
-        public Node NodeC { get { return Nodes[2]; } }
+        public Node NodeA { get { return (Node)Nodes[0]; } }
+        public Node NodeB { get { return (Node)Nodes[1]; } }
+        public Node NodeC { get { return (Node)Nodes[2]; } }
         public Vector3D Normal
         {
             get
             {
                 // Use the order of nodes as provided by TetGen, which points the normal outward
-                Vector3D v1 = Nodes[1] - Nodes[0];
-                Vector3D v2 = Nodes[2] - Nodes[0];
+                Vector3D v1 = NodeB - NodeA;
+                Vector3D v2 = NodeC - NodeA;
 
                 // Compute the cross product to get the normal vector
                 Vector3D normal = v1.Cross(v2);
@@ -36,12 +38,10 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         {
             get
             {
-                var a = Nodes[0];
-                var b = Nodes[1];
-                var c = Nodes[2];
-                return GeometryHelper.TriangleArea(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z);
+                return GeometryHelper.TriangleArea(NodeA.X, NodeA.Y, NodeA.Z, NodeB.X, NodeB.Y, NodeB.Z, NodeC.X, NodeC.Y, NodeC.Z);
             }
         }
+
         public TriangleFaceBase(Node[] nodes, TetrahedronElement[] elements) : base(nodes)
         {
             Elements = elements;

@@ -1,12 +1,8 @@
 ﻿
 using Core.FileSystem;
 using FiniteElementAnalysis.Boundaries;
-using FiniteElementAnalysis.Boundaries.Thermal;
-using FiniteElementAnalysis.Plotting;
-using FiniteElementAnalysis.Polyhedrals;
 using FiniteElementAnalysis.Solvers;
 using Core.Enums;
-using Core.Timing;
 using FiniteElementAnalysis.Fields;
 using InfernoDispatcher;
 using Core.MemoryManagement;
@@ -14,11 +10,10 @@ using Shutdown;
 using Logging;
 using FiniteElementAnalysis.Ply;
 using FiniteElementAnalysis.CloudCompare;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
 using FiniteElementAnalysis.Setup;
 using FiniteElementAnalysis.Boundaries.Electrostatic;
 using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
-using FiniteElementAnalysis.Results.ThreeD;
+using FiniteElementAnalysis.Results;
 namespace ElectrostaticsExample
 {
     // Example usage:
@@ -53,7 +48,7 @@ namespace ElectrostaticsExample
                 units: Units.Millimeters))
             {
                 var mesh = setup3D.Mesh;
-                ElectrostaticsResult3D solverResult = new ElectrostaticsSolver()
+                ElectrostaticsResult solverResult = new ElectrostaticsSolver()
                     .Solve(mesh, setup3D.WorkingDirectoryManager,
                     solverMethod: SolverMethod.BlockMatrixInversionGpuOnly);
                 solverResult.Print();

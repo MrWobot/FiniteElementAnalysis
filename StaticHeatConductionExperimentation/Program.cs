@@ -3,10 +3,8 @@ using Core.FileSystem;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Boundaries.Thermal;
 using FiniteElementAnalysis.Plotting;
-using FiniteElementAnalysis.Polyhedrals;
 using FiniteElementAnalysis.Solvers;
 using Core.Enums;
-using Core.Timing;
 using FiniteElementAnalysis.Fields;
 using InfernoDispatcher;
 using Core.MemoryManagement;
@@ -17,7 +15,7 @@ using FiniteElementAnalysis.CloudCompare;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
 using FiniteElementAnalysis.Setup;
 using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
-using FiniteElementAnalysis.Results.ThreeD;
+using FiniteElementAnalysis.Results;
 namespace StaticHeatConductionExperimentation
 {
     // Example usage:
@@ -51,10 +49,11 @@ namespace StaticHeatConductionExperimentation
                 boundaries,
                 volumes,
                 maxDistanceNodeMergeMeters: 0.000001,
+                globalMaximumTetrahedralVolumeConstraintMeters: 0.00001,
                 units: Units.Meters))
             {
                 var mesh = setup3D.Mesh;
-                HeatConductionResult3D solverResult = new HeatConductionSolver().Solve(mesh, setup3D.WorkingDirectoryManager,
+                HeatConductionResult solverResult = new HeatConductionSolver().Solve(mesh, setup3D.WorkingDirectoryManager,
                     solverMethod: SolverMethod.BlockMatrixInversionGpuOnly);
                 solverResult.Print();
                 ContourPlotHelper.Plot(mesh, 100, setup3D.OutputDirectory, "plot", PlotPlaneType.Z);
@@ -65,7 +64,7 @@ namespace StaticHeatConductionExperimentation
                     Path.Combine(setup3D.OutputDirectory, "temperatures.ply");
                 PlyWriter.WritePlyFile(
                     plyFilePath,
-                    mesh.Nodes,
+                    mesh.Nodes.Cast<Node>().ToArray(),
                     mesh.BoundaryFaces,
                     new ScalarFieldResult(
                         "temperature",

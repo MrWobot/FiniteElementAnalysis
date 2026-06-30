@@ -153,7 +153,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
             }
             BoundaryFace[] boundaryFaces = ReadBoundaryFaces(getNodeFromIndex, getBoundaryFromMarker,
                 mapThreeNodeIdentifiersToElement.QueryNoChecks);
-            var bvh = new BVH<TetrahedronElement>(elements.ToList(),
+            var bvh = new BVH3D<TetrahedronElement>(elements.ToList(),
                 e => e.BoundingCuboid, (e, p) => e.IsPointInside(p));
             return new TetrahedralMesh(boundaries, volumes, nodes, boundaryFaces, elements, bvh);
         }
@@ -216,12 +216,12 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
                             $" [{string.Join(",", nodes.Select(n => n.ToString()))}].");
                     }
                 }
-                var nodesOrdered = nodes.OrderBy(n => n.Index).ToArray();
-                var elements = getElementFromNodeIdentifiers(nodesOrdered[0].Index, nodesOrdered[1].Index, nodesOrdered[2].Index);
+                var nodesOrdered = nodes.OrderBy(n => n.Identifier).ToArray();
+                var elements = getElementFromNodeIdentifiers(nodesOrdered[0].Identifier, nodesOrdered[1].Identifier, nodesOrdered[2].Identifier);
                 if (!boundary.MultipleElementsAllowed
                     && !boundary.BoundaryConditionType.Equals(BoundaryConditionType.OperationSpecific)
                     && elements.Count() > 1) throw new Exception($"Multiple elements shared the same boundary face for boundary named \"{boundary.Name}\" with {nameof(BoundaryConditionType)} {Enum.GetName(typeof(BoundaryConditionType), boundary.BoundaryConditionType)}");
-                BoundaryFace face = new BoundaryFace(index, nodes, boundary, elements.ToArray());
+                BoundaryFace face = new BoundaryFace(nodes, boundary, elements.ToArray());
                 faces[index] = face;
             }
             return faces;
@@ -300,7 +300,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
                 double x = double.Parse(lineEntries[xLineIndex]);
                 double y = double.Parse(lineEntries[yLineIndex]);
                 double z = double.Parse(lineEntries[zLineIndex]);
-                Node node = new Node(index, x, y, z, attributes, boundary);
+                Node node = new Node(index, x, y, z, attributes);
                 nodes[index] = node;
             }
             return nodes;

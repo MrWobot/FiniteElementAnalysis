@@ -3,37 +3,37 @@ using Core.Maths.Tensors;
 using Core.Maths.Vectors;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Interpolation;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
+using FiniteElementAnalysis.Mesh.Interfaces;
 
-namespace FiniteElementAnalysis.Results.ThreeD
+using FiniteElementAnalysis.Results.Bases;
+
+namespace FiniteElementAnalysis.Results
 {
-    public class StaticMagneticConductionResult3D : VectorResultBase
+    public class StaticMagneticConductionResult: VectorResultBase
     {
         public double[] NodalMagneticVectorPotentials => CoreResult.UnknownsVector;
-        public StaticMagneticConductionResult3D(TetrahedralMesh mesh, CoreSolverResult coreResult)
+        public StaticMagneticConductionResult(IMesh mesh, CoreSolverResult coreResult)
             : base(mesh, coreResult)
         {
 
         }
-        public double[]? GetMagneticVectorPotentialAtPoint(Vector3D point)
+        public double[]? GetMagneticVectorPotentialAtPoint(double[] point)
         {
-            return _ResultMesh.ElementsBVHTree.QueryBVH(point)
+            return _ResultMesh.GetElementsContainingPoint(point)
                     .Where(e => e.IsPointInside(point))
-                    .Select(e => e.InterpolateValueAtPoint(point, 3))
+                    .Select(e => e.InterpolateValueAtPoint(point, CoreResult.NDegreesOfFreedom))
             .FirstOrDefault();
         }
-        private Vector3D GetElementMagneticFluxDensity(TetrahedronElement element)
+        private double[] GetElementMagneticFluxDensity(IElement element)
         {
 
             double[] nodalMagneticVectorPotentials =
-                element.Nodes.SelectMany(n => _MapNodeIdentifierToResultValue[n.Index])
+                element.Nodes.SelectMany(n => _MapNodeIdentifierToResultValue[n.Identifier])
                 .ToArray();
-            return Vector3D.FromArray(
-                MatrixHelper.MatrixMultiplyByVector(
-                    element.BMatrix3DOF3FieldComponentsUsingCurl,
+            return MatrixHelper.MatrixMultiplyByVector(
+                    element.GetBMatrix(CoreResult.NFieldComponents, CoreResult.FieldOperationType, CoreResult.NDegreesOfFreedom),
                     nodalMagneticVectorPotentials
-                )
-            );
+                );
         }
         public double CalculateFluxLinkage(double nTurns, int nPlanesToDivideBy, params MeasurementBoundary[] measurementBoundaries)
         {
@@ -55,20 +55,26 @@ namespace FiniteElementAnalysis.Results.ThreeD
             totalArea = 0;
             foreach (var measurementBoundary in measurementBoundaries)
             {
-                var faces = _ResultMesh.GetFacesForBoundary(measurementBoundary);
+                IBoundaryPrimitive[] faces = _ResultMesh.GetPrimitivesForBoundary(measurementBoundary);
                 if (faces == null) throw new Exception($"No faces for boundary named\"{measurementBoundary.Name}\"");
-                foreach (BoundaryFace face in faces)
+                foreach (IBoundaryPrimitive boundaryPrimitive in faces)
                 {
-                    var faceElementInterstedIn = face.Elements.Where(e => (e.GetCentroid() - face.CenterPoint).Dot(face.Normal) >= 0);
-                    if (faceElementInterstedIn.Count() > 1)
+                    var faceElementInterestedIn = boundaryPrimitive.Elements
+                        .Where(e => 
+                            VectorHelper.DotProduct(
+                                VectorHelper.Subtract(e.Centroid, boundaryPrimitive.Centre), 
+                                boundaryPrimitive.UnitNormal
+                                ) >= 0);
+                    if (faceElementInterestedIn.Count() > 1)
                     {
                         throw new Exception("Something went wrong");
                     }
-                    TetrahedronElement elementOneSideOfFace = faceElementInterstedIn.First();
-                    Vector3D fluxDensity = GetElementMagneticFluxDensity(elementOneSideOfFace);
-                    Vector3D unitDirectionFace = face.Normal;
-                    double fluxNormalToFace = fluxDensity.Dot(unitDirectionFace);
-                    double faceArea = face.Area;
+                    IElement elementOneSideOfFace = faceElementInterestedIn.First();
+                    double[] fluxDensity = GetElementMagneticFluxDensity(elementOneSideOfFace);
+                    double fluxNormalToFace = VectorHelper.DotProduct(fluxDensity, boundaryPrimitive.UnitNormal);
+                    double thicknessIntegral = boundaryPrimitive.Nodes
+                        .Sum(n => _ResultMesh.GetThickness(n.Position)) / boundaryPrimitive.Nodes.Length;
+                    double faceArea = boundaryPrimitive.Measure * thicknessIntegral;
                     double fluxLinkageForFace = Math.Abs(fluxNormalToFace * faceArea);
                     totalFluxLinkage += fluxLinkageForFace;
                     totalArea += faceArea;
@@ -79,27 +85,28 @@ namespace FiniteElementAnalysis.Results.ThreeD
         }
         public double[] GetNodalMagneticFluxDensityB()
         {
-            double[] values = new double[_ResultMesh.Nodes.Length * 3];
-            Dictionary<int, Vector3D> mapElementToFlux = new Dictionary<int, Vector3D>();
+            double[] values = new double[_ResultMesh.Nodes.Length * _ResultMesh.NodePositionLength];
+            var mapElementIdentifierToFlux = new Dictionary<int, double[]>();
             foreach (var element in _ResultMesh.Elements)
             {
-                mapElementToFlux[element.Identifier] = GetElementMagneticFluxDensity(element);
+                mapElementIdentifierToFlux[element.Identifier] = GetElementMagneticFluxDensity(element);
             }
-            foreach (Node node in _ResultMesh.Nodes)
+            foreach (INode node in _ResultMesh.Nodes)
             {
-                var elementsNodeBelongsTo = _ResultMesh.MapNodeToElementsBelongsTo[node.Index];
-                Vector3D nodalFluxDensity = InterpolationHelper.InverseDistanceWeighting(node,
+                var elementsNodeBelongsTo = _ResultMesh.MapNodeToElementsBelongsTo[node.Identifier];
+                double[] nodalFluxDensity = InterpolationHelper.InverseDistanceWeighting(node.Position,
                     elementsNodeBelongsTo
-                    .Select(e => (e.GetCentroid(), mapElementToFlux[e.Identifier]))
+                    .Select(e => (e.Centroid, mapElementIdentifierToFlux[e.Identifier]))
                     .ToList(), power: 3);
-                int valuesStartIndex = _ResultMesh.MapNodeIndexToGlobalIndex[node.Index];
-                values[valuesStartIndex * 3] = nodalFluxDensity.X;
-                values[valuesStartIndex * 3 + 1] = nodalFluxDensity.Y;
-                values[valuesStartIndex * 3 + 2] = nodalFluxDensity.Z;
-                double abs = nodalFluxDensity.Magnitude();
+                int valuesStartIndex = _ResultMesh.MapNodeIdentifierToGlobalIndex[node.Identifier];
+                for (int i = 0; i < _ResultMesh.NodePositionLength; i++)
+                {
+                    values[(valuesStartIndex * _ResultMesh.NodePositionLength) + i] = nodalFluxDensity[i];
+                }
             }
             return values;
         }
+        /*
         public double CalculateWindingSelfInductance(
             double current,
             TetrahedralMesh forMesh,
@@ -114,7 +121,7 @@ namespace FiniteElementAnalysis.Results.ThreeD
             {
                 wmagTotal+=CalculateWindingElementMagneticEnergyWmag(forMesh, forElement, nodeVolumetricCurrentDensitiesForMesh);
             }
-            return 2d*wmagTotal/Math.Pow(current, 2);*/
+            return 2d*wmagTotal/Math.Pow(current, 2);
         }
         private double CalculateWindingElementMagneticEnergyWmag(
             TetrahedralMesh forMesh, TetrahedronElement element, double[] nodalVolumetricCurrentDensitiesForMesh)
@@ -138,6 +145,6 @@ namespace FiniteElementAnalysis.Results.ThreeD
                     * VectorHelper.DotProduct(nodalMagneticVectorPotentials,
                         nodalVolumetricCurrentDensities)
                     * element.ElementVolume;
-        }
+        }*/
     }
 }

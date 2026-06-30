@@ -4,7 +4,7 @@ using Core.Maths.Tensors;
 using FiniteElementAnalysis.Mesh.Interfaces;
 using System.Xml.Linq;
 
-namespace FiniteElementAnalysis.Results.ThreeD
+namespace FiniteElementAnalysis.Results.Bases
 {
     public abstract class ResultBase
     {
@@ -18,11 +18,7 @@ namespace FiniteElementAnalysis.Results.ThreeD
         protected IEnumerable<IElement> GetElementsNodeBelongsTo(int nodeIdentifier)
         {
             if (_ResultMesh.MapNodeToElementsBelongsTo.TryGetValue(nodeIdentifier, out List<IElement>? elements))
-                if (elements.GroupBy(e => e.Identifier).Where(g => g.Count() > 1).Any())
-                {
-
-                }
-            return elements;
+                return elements;
             return Enumerable.Empty<IElement>();
         }
         public void Print()

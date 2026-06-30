@@ -22,7 +22,7 @@ using FiniteElementAnalysis.Mesh.Parsing.Tetrahedral;
 using FiniteElementAnalysis.Mesh.Polyhedral;
 using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
 using FiniteElementAnalysis.Solvers.ThreeD;
-using FiniteElementAnalysis.Results.ThreeD;
+using FiniteElementAnalysis.Results;
 
 namespace SimpleMagneticConductionAnalysis
 {
@@ -146,7 +146,7 @@ namespace SimpleMagneticConductionAnalysis
                         StaticCurrentConductionSolver staticCurrentSolver = new StaticCurrentConductionSolver();
                         TetrahedralMesh firstHalfWindingMesh = mesh.ToOperationSpecificMesh(
                             OPERATION_WINDING_CURRENT);
-                        StaticCurrentConductionResult3D firstHalfWindingStaticCurrentSolverResult
+                        StaticCurrentConductionResult firstHalfWindingStaticCurrentSolverResult
                          = staticCurrentSolver.Solve(
                             firstHalfWindingMesh,
                             workingDirectoryManager,
@@ -195,7 +195,7 @@ namespace SimpleMagneticConductionAnalysis
                             firstHalfWindingStaticCurrentSolverResult.GetNodalVolumeCurrentDensities("volume_current_density")
                         );
                         //CloudCompareHelper.Open(CURRENT_DENSITIES_PLY_FILE_PATH);
-                        var staticMagneticConductionSolver = new StaticMagneticConductionSolver();
+                        var staticMagneticConductionSolver = new StaticMagneticConductionSolverBase();
                         var magneticFieldMesh = mesh.ToOperationSpecificMesh(OPERATION_MAGNETIC_FIELD);
                         var magneticFieldResult = staticMagneticConductionSolver.Solve(
                             magneticFieldMesh,

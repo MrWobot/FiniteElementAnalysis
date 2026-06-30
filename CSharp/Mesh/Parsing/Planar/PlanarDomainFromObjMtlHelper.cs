@@ -7,6 +7,7 @@ using Core.Collections;
 using System.Net;
 using FiniteElementAnalysis.Mesh.Parsing.Planar.PlanarDomainFromObjMtlHelper_Internal;
 using FiniteElementAnalysis.Mesh.Planar;
+using FiniteElementAnalysis.Mesh.Planar.Thickness;
 
 namespace FiniteElementAnalysis.Mesh.Parsing.Planar
 {
@@ -23,6 +24,7 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
             byte[] objFileBytes,
             VolumesCollection volumes,
             BoundariesCollection boundaries,
+            PlanarThicknessSourceBase thicknessSource,
             out Dictionary<int, Boundary> mapMarkerToBoundary,
             Units units,
             double toleranceMeters,
@@ -61,7 +63,7 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
             foreach (RawFace volumeFace in volumeFaces)
             {
                 PlanarNode[] planarNodesAscendingIndex = volumeFace.Vertices
-                    .Select(v => getReusedPlanarNode(v, true)).OrderBy(n => n.Index).ToArray();
+                    .Select(v => getReusedPlanarNode(v, true)).OrderBy(n => n.Identifier).ToArray();
                 if (string.IsNullOrEmpty(volumeFace.MaterialName))
                     continue;
                 if (!mapVolumeNameToVolume.TryGetValue(volumeFace.MaterialName, out Volume? volume))
@@ -106,7 +108,7 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
                 }
                 planarEdges.Add(new PlanarEdge(edgePlanarNodes[0], edgePlanarNodes[1], boundary, segmentsBelongsTo!));
             }
-            PlanarDomain domain = new PlanarDomain(boundaries, volumes, getAllNodes(), getAllSegments(), planarEdges.ToArray());
+            PlanarDomain domain = new PlanarDomain(boundaries, volumes, thicknessSource, getAllNodes(), getAllSegments(), planarEdges.ToArray());
             return domain;
         }/*
         private static Func<Boundary, int> Create_GetBoundaryMarker(Dictionary<int, Boundary> mapMarkerToBoundary)
@@ -147,28 +149,28 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
             int nextIndex = 0;
             add = (planarNodesAscendingIndex, volume) =>
             {
-                var nodeIndices = planarNodesAscendingIndex.Select(n => n.Index).ToArray();
+                var nodeIndices = planarNodesAscendingIndex.Select(n => n.Identifier).ToArray();
                 if (seenSegments.ContainsKey(nodeIndices[0], nodeIndices[1], nodeIndices[2]))
                 {
                     return null;
                 }
                 var planarSegment = new PlanarSegment(planarNodesAscendingIndex, nextIndex++, volume);
                 seenSegments.Map(nodeIndices[0], nodeIndices[1], nodeIndices[2], planarSegment);
-                _add(planarNodesAscendingIndex[0].Index, planarNodesAscendingIndex[1].Index, planarSegment);
-                _add(planarNodesAscendingIndex[0].Index, planarNodesAscendingIndex[2].Index, planarSegment);
-                _add(planarNodesAscendingIndex[1].Index, planarNodesAscendingIndex[2].Index, planarSegment);
+                _add(planarNodesAscendingIndex[0].Identifier, planarNodesAscendingIndex[1].Identifier, planarSegment);
+                _add(planarNodesAscendingIndex[0].Identifier, planarNodesAscendingIndex[2].Identifier, planarSegment);
+                _add(planarNodesAscendingIndex[1].Identifier, planarNodesAscendingIndex[2].Identifier, planarSegment);
                 return planarSegment;
             };
             getPlanarSegmentsEdgeBelongsTo = (a, b) =>
             {
-                int indexSmallest = a.Index;
-                int indexLargest = b.Index;
-                if (a.Index > b.Index)
+                int indexSmallest = a.Identifier;
+                int indexLargest = b.Identifier;
+                if (a.Identifier > b.Identifier)
                 {
-                    indexSmallest = b.Index;
-                    indexLargest = a.Index;
+                    indexSmallest = b.Identifier;
+                    indexLargest = a.Identifier;
                 }
-                mapNodePairsAscendingIndexToSegments.TryGetValue(indexSmallest, indexLargest, out List<PlanarSegment> segments);
+                mapNodePairsAscendingIndexToSegments.TryGetValue(indexSmallest, indexLargest, out List<PlanarSegment>? segments);
                 return segments?.ToArray();
             };
             getAll = () => seenSegments.GetValues().ToArray();

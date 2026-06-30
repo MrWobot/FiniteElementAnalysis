@@ -1,8 +1,9 @@
 ﻿using Core.Maths.Matrices;
+using FiniteElementAnalysis.Fields;
 using MathNet.Numerics.Statistics;
 using System.Text;
 
-namespace FiniteElementAnalysis.Results
+namespace FiniteElementAnalysis.Results.Bases
 {
     [Serializable]
     public class CoreSolverResult
@@ -18,6 +19,9 @@ namespace FiniteElementAnalysis.Results
         public double[] UnknownsVector { get; protected set; }
         public double[] RHSVector { get; protected set; }
         public int ValidationHash { get; protected set; }
+        public int NDegreesOfFreedom { get; }
+        public int NFieldComponents { get; }
+        public FieldOperationType FieldOperationType { get; }
         public CoreSolverResult(
             string operationIdentifier,
             long timeTakenToStamp,
@@ -28,7 +32,10 @@ namespace FiniteElementAnalysis.Results
             double proportionOfMaxCacheSizeUsedAfterSolve,
             double[] unknownsVector,
             double[] rhs,
-            int validationHash)
+            int validationHash,
+            int nDegreesOfFreedom,
+            int nFieldComponents,
+            FieldOperationType fieldOperationType)
         {
             OperationIdentifier = operationIdentifier;
             TimeTakenToStamp = timeTakenToStamp;
@@ -40,10 +47,9 @@ namespace FiniteElementAnalysis.Results
             UnknownsVector = unknownsVector;
             RHSVector = rhs;
             ValidationHash = validationHash;
-        }
-        private CoreSolverResult()
-        {
-
+            NDegreesOfFreedom = nDegreesOfFreedom;
+            NFieldComponents = nFieldComponents;
+            FieldOperationType = fieldOperationType;
         }
         public override string ToString()
         {

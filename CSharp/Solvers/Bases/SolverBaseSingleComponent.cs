@@ -9,10 +9,9 @@ namespace FiniteElementAnalysis.Solvers.Bases
 {
     public abstract class SolverBaseSingleComponent<TSolverResult> : SolverBase<TSolverResult>
     {
-        protected FieldDOFInfo _FieldDOFInfo;
-        protected SolverBaseSingleComponent(FieldDOFInfo fieldDOFInfo) : base(fieldDOFInfo.NDegreesOfFreedom)
+        protected SolverBaseSingleComponent(FieldDOFInfo fieldDOFInfo) : base(fieldDOFInfo)
         {
-            _FieldDOFInfo = fieldDOFInfo;
+
         }
         protected override void StampElementMatricesOntoGlobal(IBigMatrix K, double[] rhs, int size,
             IMesh mesh,
@@ -27,7 +26,7 @@ namespace FiniteElementAnalysis.Solvers.Bases
                 updateProgress = progressHandler?.GetUpdateProgress(mesh.Elements.Length, 20);
             }
             DelegateStampOntoGlobal stampOntoGlobal =
-                Get_StampOntoGlobal(K, rhs, size, mesh.MapNodeIndexToGlobalIndex, mesh.NNodesPerElement);
+                Get_StampOntoGlobal(K, rhs, size, mesh.MapNodeIdentifierToGlobalIndex, mesh.NNodesPerElement);
             foreach (IElement element in mesh.Elements)
             {
                 StampElementOntoGlobal(

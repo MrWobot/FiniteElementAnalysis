@@ -1,7 +1,6 @@
 ﻿using Core.FileSystem;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.MeshGeneration;
-using FiniteElementAnalysis;
 using FiniteElementAnalysis.Solvers;
 using Core.Enums;
 using FiniteElementAnalysis.SourceRegions;
@@ -11,18 +10,12 @@ using Core.MemoryManagement;
 using Shutdown;
 using Logging;
 using FiniteElementAnalysis.Ply;
-using FiniteElementAnalysis.CloudCompare;
 using Core.Maths.Tensors;
-using FiniteElementAnalysis.Boundaries.Magnetic;
 using FiniteElementAnalysis.Mesh.Tetrahedral;
-using FiniteElementAnalysis.Mesh.Tetgen;
-using FiniteElementAnalysis.Mesh.Refinement.Tetgen;
-using FiniteElementAnalysis.Mesh.Parsing.Tetgen;
 using FiniteElementAnalysis.Mesh.Parsing.Tetrahedral;
 using FiniteElementAnalysis.Mesh.Polyhedral;
 using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
-using FiniteElementAnalysis.Solvers.ThreeD;
-using FiniteElementAnalysis.Results.ThreeD;
+using FiniteElementAnalysis.Results;
 
 namespace ToroidMagneticConductionExample
 {
@@ -159,7 +152,7 @@ namespace ToroidMagneticConductionExample
             );
             PolyhedralDomain domain = PolyhedralDomainFromObjHelper.Read(
                 //File.ReadAllBytes("C:\\repos\\snippets\\CircuitAnalysis\\VoltageMultiplier\\Meshes\\TestWindings.obj")
-                File.ReadAllBytes("C:\\repos\\snippets\\CircuitAnalysis\\TotoidMagneticConductionExample\\Meshes\\Model.obj"), volumes, boundaries,
+                File.ReadAllBytes("C:\\repos\\FiniteElementAnalysis\\TotoidMagneticConductionExample\\Meshes\\Model.obj"), volumes, boundaries,
                 out Dictionary<int, Boundary> mapMarkerToBoundary, Units.Millimeters,
                 0.0001d);
             string tempDirectoryPath = "D:\\temp\\";
@@ -192,11 +185,11 @@ namespace ToroidMagneticConductionExample
                             throw new Exception(generateMeshResult.Output);
                         }
                         TetrahedralMesh mesh = generateMeshResult.ToMesh(boundaries, volumes, mapMarkerToBoundary);
-                        var volumeElements = mesh.Elements.GroupBy(e => e.VolumeName).Select(g => g.ToArray()).ToArray();
+                        var volumeElements = mesh.Elements.GroupBy(e => e.VolumeBelongsTo).Select(g => g.ToArray()).ToArray();
                         StaticCurrentConductionSolver staticCurrentSolver = new StaticCurrentConductionSolver();
                         TetrahedralMesh firstHalfWindingMesh = mesh.ToOperationSpecificMesh(
                             OPERATION_WINDING_CURRENT_FIRST_HALF);
-                        StaticCurrentConductionResult3D firstHalfWindingStaticCurrentSolverResult
+                        StaticCurrentConductionResult firstHalfWindingStaticCurrentSolverResult
                          = staticCurrentSolver.Solve(
                             firstHalfWindingMesh,
                             workingDirectoryManager,
@@ -215,7 +208,7 @@ namespace ToroidMagneticConductionExample
                         );
                         TetrahedralMesh secondHalfWindingMesh = mesh.ToOperationSpecificMesh(
                             OPERATION_WINDING_CURRENT_SECOND_HALF);
-                        StaticCurrentConductionResult3D secondHalfWindingStaticCurrentSolverResult
+                        StaticCurrentConductionResult secondHalfWindingStaticCurrentSolverResult
                          = staticCurrentSolver.Solve(
                             secondHalfWindingMesh,
                             workingDirectoryManager,
@@ -269,8 +262,10 @@ namespace ToroidMagneticConductionExample
                             secondHalfWindingStaticCurrentSolverResult.GetNodalVolumeCurrentDensities("volume_current_density")
                         );
                         //CloudCompareHelper.Open(CURRENT_DENSITIES_PLY_FILE_PATH);
-                        var staticMagneticConductionSolver = new StaticMagneticConductionSolver();
+                        var staticMagneticConductionSolver = new StaticMagneticConductionSolver3D();
                         var magneticFieldMesh = mesh.ToOperationSpecificMesh(OPERATION_MAGNETIC_FIELD);
+                        string meshPlyFilePath = Path.Combine(OUTPUT_DIRECTORY, "magneticFieldMesh.ply");
+                        PlyWriter.Write(meshPlyFilePath, magneticFieldMesh);
                         var magneticFieldResult = staticMagneticConductionSolver.Solve(
                             magneticFieldMesh,
                             workingDirectoryManager,

@@ -54,7 +54,7 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Tetrahedral
                 mapVertexIndexToOverlappingNodeCuboid[node.Index] = cuboid;
                 return cuboid;
             };
-            BVH<PolyhedralNode> bvhVertexProximity = new BVH<PolyhedralNode>(
+            BVH3D<PolyhedralNode> bvhVertexProximity = new BVH3D<PolyhedralNode>(
                 null,
                 getBoundingCuboidOverlappingVertices,
                 isPointInsideEntry: (vertex, point) =>

@@ -18,8 +18,8 @@ using FiniteElementAnalysis.Mesh.Parsing.Tetgen;
 using FiniteElementAnalysis.Mesh.Parsing.Tetrahedral;
 using FiniteElementAnalysis.Mesh.Polyhedral;
 using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
-using FiniteElementAnalysis.Results.ThreeD;
 using FiniteElementAnalysis.Solvers;
+using FiniteElementAnalysis.Results;
 
 namespace VoltageMultiplier
 {
@@ -112,7 +112,7 @@ namespace VoltageMultiplier
                         TetrahedralMesh firstHalfWindingMesh = mesh.ToOperationSpecificMesh(
                             OPERATION_WINDING_CURRENT);
 
-                        StaticCurrentConductionResult3D firstHalfWindingResult
+                        StaticCurrentConductionResult firstHalfWindingResult
                          = staticCurrentSolver.Solve(
                             firstHalfWindingMesh,
                             workingDirectoryManager,

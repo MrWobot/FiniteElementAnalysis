@@ -3,12 +3,13 @@ using Core.Pool;
 using Core.Maths.Matrices;
 using FiniteElementAnalysis.Boundaries;
 using FiniteElementAnalysis.Mesh.Interfaces;
+using FiniteElementAnalysis.Fields;
 
 namespace FiniteElementAnalysis.Solvers.Bases
 {
     public abstract class MultiComponentSolverBase<TSolverResult> : SolverBase<TSolverResult>
     {
-        protected MultiComponentSolverBase(int nDegreesOfFreedom) : base(nDegreesOfFreedom)
+        protected MultiComponentSolverBase(FieldDOFInfo fieldDOFInfo) : base(fieldDOFInfo)
         {
         }
 
@@ -25,7 +26,7 @@ namespace FiniteElementAnalysis.Solvers.Bases
                 updateProgress = progressHandler?.GetUpdateProgress(mesh.Elements.Length, 20);
             }
             DelegateStampOntoGlobal stampOntoGlobal =
-                Get_StampOntoGlobal(K, rhs, size, mesh.MapNodeIndexToGlobalIndex, mesh.NNodesPerElement);
+                Get_StampOntoGlobal(K, rhs, size, mesh.MapNodeIdentifierToGlobalIndex, mesh.NNodesPerElement);
             foreach (IElement element in mesh.Elements)
             {
                 Volume volume = element.VolumeBelongsTo!;
@@ -64,7 +65,7 @@ namespace FiniteElementAnalysis.Solvers.Bases
             parentProgressHandler.AddChild(progressHandler);
             foreach (DelegateApplySourceRegion2 applySourceRegion in applySourceRegion_s)
             {
-                applySourceRegion(mesh, _NDegreesOfFreedom, K, rhs, operationIdentifier, progressHandler);
+                applySourceRegion(mesh, _FieldDOFInfo.NDegreesOfFreedom, K, rhs, operationIdentifier, progressHandler);
             }
         }
     }

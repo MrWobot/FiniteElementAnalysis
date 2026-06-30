@@ -1,6 +1,7 @@
 ﻿using FiniteElementAnalysis.Mesh.Tetrahedral;
+using FiniteElementAnalysis.Results.Bases;
 
-namespace FiniteElementAnalysis.Results.ThreeD
+namespace FiniteElementAnalysis.Results
 {
     public class GRResult3D : VectorResultBase
     {

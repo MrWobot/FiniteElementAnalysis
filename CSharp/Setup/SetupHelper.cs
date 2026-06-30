@@ -6,6 +6,7 @@ using FiniteElementAnalysis.Mesh.Parsing.MtlFiles;
 using FiniteElementAnalysis.Mesh.Parsing.Planar;
 using FiniteElementAnalysis.Mesh.Parsing.Tetrahedral;
 using FiniteElementAnalysis.Mesh.Planar;
+using FiniteElementAnalysis.Mesh.Planar.Thickness;
 using FiniteElementAnalysis.Mesh.Polyhedral;
 using FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen;
 using FiniteElementAnalysis.Mesh.Refinement.Triangular;
@@ -21,6 +22,7 @@ namespace FiniteElementAnalysis.Setup
             byte[] mtlFileBytes,
             BoundariesCollection boundaries,
             VolumesCollection volumes,
+            PlanarThicknessSourceBase thicknessSource,
             double toleranceMeters = 0.001,
             Units units = Units.Meters,
             string temporaryDirectoryPath = "D:\\temp",
@@ -28,7 +30,7 @@ namespace FiniteElementAnalysis.Setup
 
             MtlFile mtlFile = MtlFileParser.Read(mtlFileBytes);
             PlanarDomain domain = PlanarDomainFromObjMtlHelper.Read(
-                objFileBytes, volumes, boundaries,
+                objFileBytes, volumes, boundaries, thicknessSource,
                 out Dictionary<int, Boundary> mapMarkerToBoundary,
                 units, toleranceMeters);
             domain.ApplyColours(mtlFile);

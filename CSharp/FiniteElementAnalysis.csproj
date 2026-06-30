@@ -12,6 +12,8 @@
     <Compile Remove="Boundaries\ForceBoundaryCondition.cs" />
     <Compile Remove="Boundaries\TemperatureBoundaryCondition.cs" />
     <Compile Remove="Cuboid.cs" />
+    <Compile Remove="Mesh\Tetrahedral\TriangleElementFace.cs" />
+    <Compile Remove="Results\GRResult3D.cs" />
     <Compile Remove="Solvers\GRSolver.cs" />
     <Compile Remove="Solvers\MagneticFieldSolver.cs" />
     <Compile Remove="Solvers\ScalarSolver_New.cs" />
@@ -46,6 +48,7 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Results\ThreeD\" />
     <Folder Include="Results\TwoD\" />
     <Folder Include="TriangleNet\" />
   </ItemGroup>
