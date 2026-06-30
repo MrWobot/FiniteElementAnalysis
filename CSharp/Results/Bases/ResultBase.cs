@@ -17,9 +17,7 @@ namespace FiniteElementAnalysis.Results.Bases
         }
         protected IEnumerable<IElement> GetElementsNodeBelongsTo(int nodeIdentifier)
         {
-            if (_ResultMesh.MapNodeToElementsBelongsTo.TryGetValue(nodeIdentifier, out List<IElement>? elements))
-                return elements;
-            return Enumerable.Empty<IElement>();
+            return _ResultMesh.GetElementsThatNodeBelongsTo(nodeIdentifier);
         }
         public void Print()
         {

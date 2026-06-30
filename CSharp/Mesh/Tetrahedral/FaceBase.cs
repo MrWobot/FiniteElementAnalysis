@@ -12,7 +12,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         public void ReverseNodes() {
             Nodes = Nodes.Reverse().ToArray();
         }
-        public FaceBase(Node[] nodes)
+        public FaceBase(TetrahedralNode[] nodes)
         {
             if (nodes.Length != 3) throw new ArgumentException($"There should only be three nodes in a face. {nodes.Length} was provided");
             Nodes = nodes;

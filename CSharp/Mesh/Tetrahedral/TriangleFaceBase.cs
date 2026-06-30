@@ -9,16 +9,16 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
     public class TriangleFaceBase : FaceBase
     {
         public IElement[] Elements { get; private set; }
-        public void AddElement(TetrahedronElement element)
+        public void AddElement(TetrahedralElement element)
         {
             var oldElements = Elements;
-            Elements = new TetrahedronElement[oldElements.Length + 1];
+            Elements = new TetrahedralElement[oldElements.Length + 1];
             Array.Copy(oldElements, Elements, oldElements.Length);
             Elements[oldElements.Length] = element;
         }
-        public Node NodeA { get { return (Node)Nodes[0]; } }
-        public Node NodeB { get { return (Node)Nodes[1]; } }
-        public Node NodeC { get { return (Node)Nodes[2]; } }
+        public TetrahedralNode NodeA { get { return (TetrahedralNode)Nodes[0]; } }
+        public TetrahedralNode NodeB { get { return (TetrahedralNode)Nodes[1]; } }
+        public TetrahedralNode NodeC { get { return (TetrahedralNode)Nodes[2]; } }
         public Vector3D Normal
         {
             get
@@ -42,7 +42,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
             }
         }
 
-        public TriangleFaceBase(Node[] nodes, TetrahedronElement[] elements) : base(nodes)
+        public TriangleFaceBase(TetrahedralNode[] nodes, TetrahedralElement[] elements) : base(nodes)
         {
             Elements = elements;
         }

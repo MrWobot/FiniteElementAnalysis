@@ -2,5 +2,5 @@
 
 namespace FiniteElementAnalysis.Solvers
 {
-    public delegate void DelegateStampOntoGlobal(INode[] nodes, double[][] Ke, double[] rhsE);
+    public delegate void DelegateStampOntoGlobal(IReadOnlyList<INode> nodes, double[][] Ke, double[] rhsE);
 }

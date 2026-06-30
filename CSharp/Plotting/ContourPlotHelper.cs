@@ -21,7 +21,7 @@ namespace FiniteElementAnalysis.Plotting
             Directory.CreateDirectory(directoryPath);
             if (planesToInclude.Length < 1)
                 planesToInclude = new PlotPlaneType[] { PlotPlaneType.X, PlotPlaneType.Y, PlotPlaneType.Z};
-            var nodes = mesh.Nodes.Cast<Node>().ToArray();
+            var nodes = mesh.Nodes.Cast<TetrahedralNode>().ToArray();
             double xMin = nodes.Min(n => n.X);
             double yMin = nodes.Min(n => n.Y);
             double zMin = nodes.Min(n => n.Z);
@@ -85,12 +85,12 @@ namespace FiniteElementAnalysis.Plotting
                         {
                             Vector3D point = plane.Get3DPointFromXY(x + (i * dXSubStep), y + (j * dYSubStep),
                                 new Vector3D(1, 0, 0));
-                            IElement[] elementsContainingPoint = mesh.GetElementsContainingPoint(point.ToArray()).Cast<TetrahedronElement>()
+                            IElement[] elementsContainingPoint = mesh.GetElementsContainingPoint(point.ToArray()).Cast<TetrahedralElement>()
                                 .Where(e => e.IsPointInside(point)).ToArray();
                             if (elementsContainingPoint.Length > 0)
                             {
                                 double value = elementsContainingPoint
-                                    .Select(e => ((TetrahedronElement)e).InterpolateScalarValueAtPoint(point)).Sum() / elementsContainingPoint.Length;
+                                    .Select(e => ((TetrahedralElement)e).InterpolateScalarValueAtPoint(point)).Sum() / elementsContainingPoint.Length;
                                 valuesAtSubPoints.Add(value);
                             }
                             else {

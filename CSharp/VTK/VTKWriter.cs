@@ -8,11 +8,11 @@ namespace FiniteElementAnalysis.VTK
     public static class VtkWriter
     {
 
-        public static void WriteVtkFile(string filePath, string name, Node[] nodes,
-            TetrahedronElement[] elements, params FieldResult[] vectorFIeldResults)
+        public static void WriteVtkFile(string filePath, string name, TetrahedralNode[] nodes,
+            TetrahedralElement[] elements, params FieldResult[] vectorFIeldResults)
         {
             int nodeIndex = 0;
-            Dictionary<Node, int> mapNodeToIndex = nodes.ToDictionary(n => n, n => nodeIndex++);
+            Dictionary<TetrahedralNode, int> mapNodeToIndex = nodes.ToDictionary(n => n, n => nodeIndex++);
             Directory.CreateDirectory(Path.GetDirectoryName(filePath));
             using (StreamWriter writer = new StreamWriter(filePath))
             {
@@ -25,7 +25,7 @@ namespace FiniteElementAnalysis.VTK
                 // Points (Nodes)
                 int nNodes = nodes.Length;
                 writer.WriteLine($"POINTS {nNodes} double");
-                foreach (Node node in nodes)
+                foreach (TetrahedralNode node in nodes)
                 {
                     writer.WriteLine($"{node.X.ToString(CultureInfo.InvariantCulture)} " +
                                      $"{node.Y.ToString(CultureInfo.InvariantCulture)} " +
@@ -37,7 +37,7 @@ namespace FiniteElementAnalysis.VTK
                 int nElements = elements.Length;
                 int listSize = nElements*5;
                 writer.WriteLine($"CELLS {nElements} {listSize}");
-                foreach (TetrahedronElement element in elements)
+                foreach (TetrahedralElement element in elements)
                 {
                     writer.Write("4 ");
                     writer.Write($"{mapNodeToIndex[element.NodeA]} ");

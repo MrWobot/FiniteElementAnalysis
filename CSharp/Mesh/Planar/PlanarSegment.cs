@@ -8,10 +8,9 @@ namespace FiniteElementAnalysis.Mesh.Planar
 
     public class PlanarSegment : IElement
     {
-
         public int Identifier { get; }
 
-        public INode[] Nodes { get; }
+        public IReadOnlyList<INode> Nodes { get; }
         PlanarNode NodeA { get; }
         PlanarNode NodeB { get; }
         PlanarNode NodeC { get; }
@@ -39,16 +38,16 @@ namespace FiniteElementAnalysis.Mesh.Planar
             }
         }*/
         public Volume VolumeBelongsTo { get; }
-        public PlanarSegment(PlanarNode[] nodes, int index, Volume volumeBelongsTo)
+        public PlanarSegment(PlanarNode[] planarNodes, int index, Volume volumeBelongsTo)
         {
-            if (nodes.Length != 3) throw new Exception("Triangles only");
-            Nodes = nodes;
-            NodeA = nodes[0];
-            NodeB = nodes[1];
-            NodeC = nodes[2];
+            if (planarNodes.Length != 3) throw new Exception("Triangles only");
+            Nodes = planarNodes;
+            NodeA = planarNodes[0];
+            NodeB = planarNodes[1];
+            NodeC = planarNodes[2];
             Identifier = index;
             VolumeBelongsTo = volumeBelongsTo;
-            foreach (PlanarNode node in nodes)
+            foreach (PlanarNode node in planarNodes)
             {
                 node.AddBelongsTo(this);
             }
@@ -63,8 +62,8 @@ namespace FiniteElementAnalysis.Mesh.Planar
             if (obj == null) return false;
             PlanarSegment? other = obj as PlanarSegment;
             if (other == null) return false;
-            if (Nodes.Length != other.Nodes.Length) return false;
-            for (int i = 0; i < Nodes.Length; i++)
+            if (Nodes.Count != other.Nodes.Count) return false;
+            for (int i = 0; i < Nodes.Count; i++)
             {
                 if (Nodes[i].Identifier == other.Nodes[i].Identifier)
                     return false;

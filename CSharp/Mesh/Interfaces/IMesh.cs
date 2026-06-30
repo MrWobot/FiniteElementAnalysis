@@ -1,5 +1,4 @@
 using FiniteElementAnalysis.Boundaries;
-using FiniteElementAnalysis.Mesh.Tetrahedral;
 
 namespace FiniteElementAnalysis.Mesh.Interfaces
 {
@@ -9,10 +8,10 @@ namespace FiniteElementAnalysis.Mesh.Interfaces
         public int NodePositionLength { get; }
         public BoundariesCollection Boundaries { get; }
         public VolumesCollection Volumes { get; }
-        public INode[] Nodes { get; }
-        public IElement[] Elements { get; }
-        public Dictionary<int, int> MapNodeIdentifierToGlobalIndex { get; }
-        public Dictionary<int, List<IElement>> MapNodeToElementsBelongsTo { get; }
+        public IReadOnlySet<INode> Nodes { get; }
+        public IReadOnlySet<IElement> Elements { get; }
+        public int GetGlobalIndexForNode(int nodeIdentifier);
+        public IReadOnlySet<IElement> GetElementsThatNodeBelongsTo(int nodeIdentifier);
         public bool IsPartOfResult { get; set; }
         public double GetThickness(double[] position);
         public abstract bool HasNonLinearBoundaries();
@@ -21,7 +20,7 @@ namespace FiniteElementAnalysis.Mesh.Interfaces
         /// </summary>
         /// <param name="boundary"></param>
         /// <returns></returns>
-        public abstract IBoundaryPrimitive[] GetPrimitivesForBoundary(Boundary boundary);
+        public abstract IReadOnlyList<IBoundaryPrimitive> GetPrimitivesForBoundary(Boundary boundary);
         public abstract IMesh Clone();
 
         public IEnumerable<IElement> GetElementsContainingPoint(double[] point);

@@ -64,7 +64,7 @@ namespace StaticHeatConductionExperimentation
                     Path.Combine(setup3D.OutputDirectory, "temperatures.ply");
                 PlyWriter.WritePlyFile(
                     plyFilePath,
-                    mesh.Nodes.Cast<Node>().ToArray(),
+                    mesh.Nodes.Cast<TetrahedralNode>().ToArray(),
                     mesh.BoundaryFaces,
                     new ScalarFieldResult(
                         "temperature",

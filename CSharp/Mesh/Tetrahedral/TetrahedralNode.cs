@@ -4,14 +4,14 @@ using FiniteElementAnalysis.Mesh.Interfaces;
 namespace FiniteElementAnalysis.Mesh.Tetrahedral
 {
 
-    public class Node : Vector3D, INode
+    public class TetrahedralNode : Vector3D, INode
     {
         public int Identifier{ get; }
         private double[]? _Attributes;
         public double[] Attributes { get { return _Attributes!; } }
         public override bool Equals(object? obj)
         {
-            return obj is Node node &&
+            return obj is TetrahedralNode node &&
                    Identifier == node.Identifier;
         }
 
@@ -32,7 +32,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
 
         public double[] Position => new double[] { X, Y, Z };
 
-        public Node(int identifier, double x, double y, double z, double[]? attributes)
+        public TetrahedralNode(int identifier, double x, double y, double z, double[]? attributes)
             : base(x, y, z)
         {
             Identifier = identifier;

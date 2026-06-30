@@ -144,7 +144,7 @@ namespace FiniteElementAnalysis.Solvers.Bases
                 default:
                     throw new NotImplementedException($"Not implemented for {Enum.GetName(typeof(SolverMethod), solverMethod)}");
             }
-            SetValueOnNodes(unknowns, mesh.Nodes);
+            SetValueOnNodes(unknowns, mesh);
         }
         private void _Stamp(
             IBigMatrix K,
@@ -272,7 +272,7 @@ namespace FiniteElementAnalysis.Solvers.Bases
                 throw new Exception($"Mesh contains {nameof(MultipleOperationBoundary)}'s");
             bool hasNonLinearities = mesh.HasNonLinearBoundaries();
             if (hasNonLinearities) throw new NotImplementedException("Not implemented for non linear boundaries yet");
-            int sizeForNodes = _FieldDOFInfo.NDegreesOfFreedom * mesh.Nodes.Length;
+            int sizeForNodes = _FieldDOFInfo.NDegreesOfFreedom * mesh.Nodes.Count;
             var systemMatrixModifyingBoundaries = mesh.Boundaries.SystemMatrixModifyingBoundaries;
             int sizeForSystemMatrixModifyingBoundaries = systemMatrixModifyingBoundaries.Sum(b => b.NAdditionalRowsColumnsRequired);
             size = sizeForNodes + sizeForSystemMatrixModifyingBoundaries;
@@ -281,14 +281,13 @@ namespace FiniteElementAnalysis.Solvers.Bases
             {
                 AssignIndicesToSystemMatrixModifyingBoundaries(sizeForNodes, systemMatrixModifyingBoundaries);
             }
-            INode[] nodes = mesh.Nodes;
             if (cachedSolverResult != null && useCachedSolverResults)
             {
                 Console.WriteLine("Attempting to read cached solver result...");
                 if (ReadAndValidateSolverResult(cachedSolverResult, validationHash, out CoreSolverResult? solverResult))
                 {
                     Console.WriteLine("Successfully read cached solver result");
-                    SetValueOnNodes(solverResult!.UnknownsVector, nodes);
+                    SetValueOnNodes(solverResult!.UnknownsVector, mesh);
                     memoryAllocationLock = null;
                     return solverResult!;
                 }
@@ -329,7 +328,7 @@ namespace FiniteElementAnalysis.Solvers.Bases
             var bTransposeScaledByK = ScaleBTransposeByK(BTranspose, volume);
             var dotProduct = MatrixHelper.Multiply(
                 bTransposeScaledByK, B);
-            double thicknessIntegral = element.Nodes.Sum(n => getThickness(n.Position)) / element.Nodes.Length;
+            double thicknessIntegral = element.Nodes.Sum(n => getThickness(n.Position)) / element.Nodes.Count;
             double[][] Ke = MatrixHelper.Scale(dotProduct, element.Measure * thicknessIntegral);
             //double[] rhsForElement = new double[4 * _NDegreesOfFreedom];
             stampOntoGlobal(element.Nodes, Ke, rhs);
@@ -388,14 +387,14 @@ namespace FiniteElementAnalysis.Solvers.Bases
             double[] rhs,
             string operationIdentifier,
             CompositeProgressHandler parentProgressHandler);
-        private void SetValueOnNodes(double[] unknowns, INode[] nodes)
+        private void SetValueOnNodes(double[] unknowns, IMesh mesh)
         {
             int dof = _FieldDOFInfo.NDegreesOfFreedom;
-            for (int i = 0; i < nodes.Length; i++)
+            foreach (INode node in mesh.Nodes)
             {
-                INode node = nodes[i];
                 double[] values = new double[dof];
-                Array.Copy(unknowns, i * dof, values, 0, dof);
+                int globalIndex = mesh.GetGlobalIndexForNode(node.Identifier);
+                Array.Copy(unknowns, globalIndex * dof, values, 0, dof);
                 node.Values = values;
             }
         }
@@ -420,7 +419,7 @@ namespace FiniteElementAnalysis.Solvers.Bases
         protected abstract void ApplyBoundaryToGlobal(Boundary boundary, IMesh mesh,
             IBigMatrix K, double[] rhs, string operationIdentifier);
         protected DelegateStampOntoGlobal Get_StampOntoGlobal(IBigMatrix K, double[] rhs, int size,
-    Dictionary<int, int> mapNodeToGlobalIndex, int nNodesPerElement)
+    Func<int, int> getNodeGlobalIndexFromIdentifier, int nNodesPerElement)
         {
             int dof = _FieldDOFInfo.NDegreesOfFreedom;
             return (nodes, Ke, rhsE) =>
@@ -428,14 +427,14 @@ namespace FiniteElementAnalysis.Solvers.Bases
                 for (int row = 0; row < nNodesPerElement; row++)  // Loop over the nodes of the element
                 {
                     INode nodeRow = nodes[row];
-                    int globalNodeRowIndex = mapNodeToGlobalIndex[nodeRow.Identifier];  // Get global row index
+                    int globalNodeRowIndex = getNodeGlobalIndexFromIdentifier(nodeRow.Identifier);  // Get global row index
                     for (int dofRow = 0; dofRow < dof; dofRow++)  // Loop over DOFs for this row
                     {
                         int globalRowIndex = dof * globalNodeRowIndex + dofRow;
                         for (int column = 0; column < nNodesPerElement; column++)  // Loop over the columns
                         {
                             INode nodeColumn = nodes[column];
-                            int globalNodeColumnIndex = mapNodeToGlobalIndex[nodeColumn.Identifier];  // Get global column index
+                            int globalNodeColumnIndex = getNodeGlobalIndexFromIdentifier(nodeColumn.Identifier);  // Get global column index
                             for (int dofColumn = 0; dofColumn < dof; dofColumn++)  // Loop over DOFs for the column
                             {
                                 int globalColumnIndex = dof * globalNodeColumnIndex + dofColumn;
@@ -499,7 +498,6 @@ namespace FiniteElementAnalysis.Solvers.Bases
     Boundary boundary, IMesh mesh, IBigMatrix K, double[] rhs,
     double[] boundaryNodalVectorValues)
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             if (boundaryNodalVectorValues.Length != _FieldDOFInfo.NDegreesOfFreedom)
             {
                 throw new ArgumentException("The length of the boundaryNodalVectorValues must match the degrees of freedom.");
@@ -514,7 +512,7 @@ namespace FiniteElementAnalysis.Solvers.Bases
             HashSet<int> rowsToBeProcessed = new HashSet<int>();
             foreach (INode node in nodes)
             {
-                int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                int nodeIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                 for (int iDof = 0; iDof < _FieldDOFInfo.NDegreesOfFreedom; iDof++)
                 {
                     int dofIndex = nodeIndex * _FieldDOFInfo.NDegreesOfFreedom + iDof;
@@ -527,7 +525,7 @@ namespace FiniteElementAnalysis.Solvers.Bases
                 double[] row = K.ReadRow(rowIndex);
                 foreach (INode node in nodes)
                 {
-                    int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                    int nodeIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                     for (int iDof = 0; iDof < _FieldDOFInfo.NDegreesOfFreedom; iDof++)
                     {
                         int dofIndex = nodeIndex * _FieldDOFInfo.NDegreesOfFreedom + iDof;

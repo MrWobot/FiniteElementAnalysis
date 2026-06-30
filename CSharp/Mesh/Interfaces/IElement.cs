@@ -6,7 +6,7 @@ namespace FiniteElementAnalysis.Mesh.Interfaces
     public interface IElement
     {
         public int Identifier { get; }
-        public INode[] Nodes { get; }
+        public IReadOnlyList<INode> Nodes { get; }
         public Volume VolumeBelongsTo { get; }
         /// <summary>
         /// This is the volume for a 3d element such as a tetrahedral. Or the area for a 2d element like a triangle

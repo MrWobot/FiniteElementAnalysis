@@ -55,7 +55,7 @@ namespace FiniteElementAnalysis.Results
             totalArea = 0;
             foreach (var measurementBoundary in measurementBoundaries)
             {
-                IBoundaryPrimitive[] faces = _ResultMesh.GetPrimitivesForBoundary(measurementBoundary);
+                IReadOnlyList<IBoundaryPrimitive> faces = _ResultMesh.GetPrimitivesForBoundary(measurementBoundary);
                 if (faces == null) throw new Exception($"No faces for boundary named\"{measurementBoundary.Name}\"");
                 foreach (IBoundaryPrimitive boundaryPrimitive in faces)
                 {
@@ -85,7 +85,7 @@ namespace FiniteElementAnalysis.Results
         }
         public double[] GetNodalMagneticFluxDensityB()
         {
-            double[] values = new double[_ResultMesh.Nodes.Length * _ResultMesh.NodePositionLength];
+            double[] values = new double[_ResultMesh.Nodes.Count * _ResultMesh.NodePositionLength];
             var mapElementIdentifierToFlux = new Dictionary<int, double[]>();
             foreach (var element in _ResultMesh.Elements)
             {
@@ -93,12 +93,12 @@ namespace FiniteElementAnalysis.Results
             }
             foreach (INode node in _ResultMesh.Nodes)
             {
-                var elementsNodeBelongsTo = _ResultMesh.MapNodeToElementsBelongsTo[node.Identifier];
+                var elementsNodeBelongsTo = _ResultMesh.GetElementsThatNodeBelongsTo(node.Identifier);
                 double[] nodalFluxDensity = InterpolationHelper.InverseDistanceWeighting(node.Position,
                     elementsNodeBelongsTo
                     .Select(e => (e.Centroid, mapElementIdentifierToFlux[e.Identifier]))
                     .ToList(), power: 3);
-                int valuesStartIndex = _ResultMesh.MapNodeIdentifierToGlobalIndex[node.Identifier];
+                int valuesStartIndex = _ResultMesh.GetGlobalIndexForNode(node.Identifier);
                 for (int i = 0; i < _ResultMesh.NodePositionLength; i++)
                 {
                     values[(valuesStartIndex * _ResultMesh.NodePositionLength) + i] = nodalFluxDensity[i];

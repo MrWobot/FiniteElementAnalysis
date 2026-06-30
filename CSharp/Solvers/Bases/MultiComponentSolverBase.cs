@@ -23,10 +23,10 @@ namespace FiniteElementAnalysis.Solvers.Bases
             {
                 progressHandler = new StandardProgressHandler();
                 parentProgressHandler.AddChild(progressHandler);
-                updateProgress = progressHandler?.GetUpdateProgress(mesh.Elements.Length, 20);
+                updateProgress = progressHandler?.GetUpdateProgress(mesh.Elements.Count, 20);
             }
             DelegateStampOntoGlobal stampOntoGlobal =
-                Get_StampOntoGlobal(K, rhs, size, mesh.MapNodeIdentifierToGlobalIndex, mesh.NNodesPerElement);
+                Get_StampOntoGlobal(K, rhs, size, mesh.GetGlobalIndexForNode, mesh.NNodesPerElement);
             foreach (IElement element in mesh.Elements)
             {
                 Volume volume = element.VolumeBelongsTo!;

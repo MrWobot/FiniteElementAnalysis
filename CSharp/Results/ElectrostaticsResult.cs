@@ -19,14 +19,14 @@ namespace FiniteElementAnalysis.Results
             foreach (var element in _ResultMesh.Elements)
             {
                 double[][] elementBMatrix = element.GetBMatrix(1, FieldOperationType.Gradient, 1);
-                double[] E = VectorHelper.Scale(MatrixHelper.MatrixMultiplyByVector(elementBMatrix, element.Nodes.Select(n => Potentials[_ResultMesh.MapNodeIdentifierToGlobalIndex[n.Identifier]]).ToArray()), -1);
+                double[] E = VectorHelper.Scale(MatrixHelper.MatrixMultiplyByVector(elementBMatrix, element.Nodes.Select(n => Potentials[_ResultMesh.GetGlobalIndexForNode(n.Identifier)]).ToArray()), -1);
                 mapElementToElectricFieldStrength[element] = E;
 
             }
-            double[] nodeEs = new double[_ResultMesh.Nodes.Length];
+            double[] nodeEs = new double[_ResultMesh.Nodes.Count];
             foreach (var node in _ResultMesh.Nodes)
             {
-                List<IElement> elements = _ResultMesh.MapNodeToElementsBelongsTo[node.Identifier];
+                IReadOnlySet<IElement> elements = _ResultMesh.GetElementsThatNodeBelongsTo(node.Identifier);
                 double[] sum = new double[_ResultMesh.NodePositionLength];
                 foreach (var element in elements)
                 {
@@ -38,7 +38,7 @@ namespace FiniteElementAnalysis.Results
                 }
                 double[] nodeE = sum.Select(s => s / elements.Count).ToArray();
                 double scalarNodeE = Math.Sqrt(nodeE.Sum(e => e * e));
-                nodeEs[_ResultMesh.MapNodeIdentifierToGlobalIndex[node.Identifier]] = scalarNodeE;
+                nodeEs[_ResultMesh.GetGlobalIndexForNode(node.Identifier)] = scalarNodeE;
 
             }
             return nodeEs;

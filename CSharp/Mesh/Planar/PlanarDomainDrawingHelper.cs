@@ -53,11 +53,11 @@ namespace FiniteElementAnalysis.Mesh.Planar
                     DrawLine(image, node3.X, node3.Y, node1.X, node1.Y, 1f, defaultArcColourRGBA32);
                 }
             }
-            foreach (var edge in domain.Edges)
+            foreach (var edge in domain.PlanarEdges)
             {
                 if (edge.Boundary == null) continue;
-                var node1 = nodeVectorToImageCoordinate((PlanarNode)edge.Nodes[0]);
-                var node2 = nodeVectorToImageCoordinate((PlanarNode)edge.Nodes[1]);
+                var node1 = nodeVectorToImageCoordinate(edge.Node1);
+                var node2 = nodeVectorToImageCoordinate(edge.Node2);
                 DrawLine(image, node1.X, node1.Y, node2.X, node2.Y, 4f, ToRGBA32(edge.Boundary.Color));
             }
             Save(image, filePath);

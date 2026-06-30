@@ -49,7 +49,7 @@ namespace FiniteElementAnalysis.Ply
                 return _FixedValue;
             }
         }
-        public static void WritePlyFile(string filePath, Node[] nodes,
+        public static void WritePlyFile(string filePath, TetrahedralNode[] nodes,
             BoundaryFace[] faces, params FieldResult[] fieldResults)
         {
             FieldComponent[] colourFieldComponents = GetFieldComponents(fieldResults,
@@ -64,9 +64,9 @@ namespace FiniteElementAnalysis.Ply
             TetrahedralMesh mesh, params FieldResult[] fieldResults)
         {
 
-            Node[] nodes = mesh.Nodes.Cast<Node>().ToArray();
+            TetrahedralNode[] nodes = mesh.TetrahedralNodes.ToArray();
             int nodesLength = nodes.Length;
-            TriangleFaceBase[] faces = mesh.AllFaces;
+            IReadOnlySet<TriangleFaceBase> faces = mesh.AllFaces;
             HashSet<Volume> volumesIncluded = new HashSet<Volume>();
             foreach (var element in mesh.Elements)
             {
@@ -135,7 +135,7 @@ namespace FiniteElementAnalysis.Ply
                     writeLineBreak();
                 }
                 // Write face count
-                writeString($"element face {faces.Length}");
+                writeString($"element face {faces.Count}");
                 writeLineBreak();
 
                 // Write properties for faces
@@ -149,7 +149,7 @@ namespace FiniteElementAnalysis.Ply
                 nodeIndex = 0;
                 while (nodeIndex < nodes.Length)
                 {
-                    Node node = nodes[nodeIndex];
+                    TetrahedralNode node = nodes[nodeIndex];
                     writeLineBreak();
                     byte[] nodeColour = nodeColors[nodeIndex];
                     writer.Write($"{node.X} {node.Y} {node.Z} {nodeColour[0]} {nodeColour[1]} {nodeColour[2]}");
@@ -171,7 +171,7 @@ namespace FiniteElementAnalysis.Ply
 
             Console.WriteLine($"PLY file \"{filePath}\" generated successfully.");
         }
-        private static void WritePlyFile(string filePath, Node[] nodes,
+        private static void WritePlyFile(string filePath, TetrahedralNode[] nodes,
             BoundaryFace[] faces, FieldComponent[] colourFieldComponents, ResultFieldComponent[] resultParameterFieldComponents)
         {
 
@@ -230,7 +230,7 @@ namespace FiniteElementAnalysis.Ply
                 nodeIndex = 0;
                 for (nodeIndex = 0; nodeIndex < nodes.Length; nodeIndex++)
                 {
-                    Node node = nodes[nodeIndex];
+                    TetrahedralNode node = nodes[nodeIndex];
                     writeLineBreak();
                     writer.Write($"{node.X} {node.Y} {node.Z}"); // Write as string
                     foreach (var fieldComponent in colourFieldComponents)

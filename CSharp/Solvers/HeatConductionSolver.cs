@@ -66,8 +66,7 @@ namespace FiniteElementAnalysis.Solvers
     double[] rhs)
         {
             throw new NeverUsedOrDebuggedException();
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
-            IBoundaryPrimitive[]? primitives = mesh.GetPrimitivesForBoundary(boundary);
+            IReadOnlyList<IBoundaryPrimitive>? primitives = mesh.GetPrimitivesForBoundary(boundary);
             if (primitives == null) return;
             double h = boundary.ConvectiveHeatTransferCoefficientH;
             double T_infinity = boundary.AmbientTemperature;
@@ -86,10 +85,10 @@ namespace FiniteElementAnalysis.Solvers
 
                 for (int i = 0; i < n; i++)
                 {
-                    int iIndex = mapNodeToGlobalIndex[primitive.Nodes[i].Identifier];
+                    int iIndex = mesh.GetGlobalIndexForNode(primitive.Nodes[i].Identifier);
                     for (int j = 0; j < n; j++)
                     {
-                        int jIndex = mapNodeToGlobalIndex[primitive.Nodes[j].Identifier];
+                        int jIndex = mesh.GetGlobalIndexForNode(primitive.Nodes[j].Identifier);
                         K[iIndex, jIndex] += i == j ? diagonal : offDiagonal;
                     }
                     // RHS contribution
@@ -104,9 +103,8 @@ namespace FiniteElementAnalysis.Solvers
     double[] rhs)
         {
             throw new NeverUsedOrDebuggedException();
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
-            IBoundaryPrimitive[]? primitives = mesh.GetPrimitivesForBoundary(boundary);
-            if (primitives == null || primitives.Length < 1) return false;
+            IReadOnlyList<IBoundaryPrimitive>? primitives = mesh.GetPrimitivesForBoundary(boundary);
+            if (primitives == null || primitives.Count < 1) return false;
 
             double epsilon = boundary.EmissivityOfSurface;
             double sigma = 5.67e-8; // Stefan-Boltzmann constant W/(m²K⁴)
@@ -135,10 +133,10 @@ namespace FiniteElementAnalysis.Solvers
 
                 for (int i = 0; i < n; i++)
                 {
-                    int iIndex = mapNodeToGlobalIndex[primitive.Nodes[i].Identifier];
+                    int iIndex = mesh.GetGlobalIndexForNode(primitive.Nodes[i].Identifier);
                     for (int j = 0; j < n; j++)
                     {
-                        int jIndex = mapNodeToGlobalIndex[primitive.Nodes[j].Identifier];
+                        int jIndex = mesh.GetGlobalIndexForNode(primitive.Nodes[j].Identifier);
                         K[iIndex, jIndex] += i == j ? diagonal : offDiagonal;
                     }
                     // RHS — complete linearisation includes both T∞⁴ and -3×T_ref⁴ terms
@@ -158,8 +156,6 @@ namespace FiniteElementAnalysis.Solvers
             IBigMatrix K, double[] rhs
         )
         {
-
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             INode[]? nodes = mesh.GetPrimitivesForBoundary(boundary)
                 ?.SelectMany(f => f.Nodes)
                 .GroupBy(n => n)
@@ -168,7 +164,7 @@ namespace FiniteElementAnalysis.Solvers
             if (nodes == null) return;
             foreach (INode node in nodes)
             {
-                int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                int nodeIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                 FixValueInUnknowns(K, rhs, nodeIndex, boundary.TemperatureK);
             }
         }
@@ -177,9 +173,7 @@ namespace FiniteElementAnalysis.Solvers
             IMesh mesh,
             double[] rhs)
         {
-
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
-            IBoundaryPrimitive[]? faces = mesh.GetPrimitivesForBoundary(boundary);
+            IReadOnlyList<IBoundaryPrimitive>? faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) return;
             foreach (IBoundaryPrimitive face in faces)
             {
@@ -192,7 +186,7 @@ namespace FiniteElementAnalysis.Solvers
                 {
                     // If the heat flux convention in your system is positive for heat entering the domain,
                     // you might want to subtract the contribution instead.
-                    int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                    int nodeIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                     rhs[nodeIndex] += nodeContribution;
                 }
             }

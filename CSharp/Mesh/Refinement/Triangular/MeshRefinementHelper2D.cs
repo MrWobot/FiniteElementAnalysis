@@ -23,12 +23,11 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
             var getVertexFromNode = Create_GetVertexFromNode(domain, polygon);
             var mapMarkerToBoundary = new Dictionary<int, Boundary>();
             Func<Boundary, int> getBoundaryMarker = Create_GetBoundaryMarker(mapMarkerToBoundary);
-            foreach (var boundaryEdge in domain.Edges)
+            foreach (var planarEdge in domain.PlanarEdges)
             {
-                PlanarEdge planarEdge = (PlanarEdge)boundaryEdge;
                 var vertex1 = getVertexFromNode(planarEdge.Node1);
                 var vertex2 = getVertexFromNode(planarEdge.Node2);
-                polygon.Add(new Segment(vertex1, vertex2, getBoundaryMarker(boundaryEdge.Boundary)));
+                polygon.Add(new Segment(vertex1, vertex2, getBoundaryMarker(planarEdge.Boundary)));
             }
             var mapMarkerToVolume = new Dictionary<int, Volume>();
             Func<Volume, int> getVolumeMarker = Create_GetVolumeMarker(mapMarkerToVolume);
@@ -55,15 +54,13 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
             BoundariesCollection boundaries)
         {
             var mapVertexToPlanarNode = new Dictionary<Vertex, PlanarNode>();
-            var newPlanarNodes = new List<PlanarNode>();
-            var newPlanarSegments = new List<PlanarSegment>();
-            var newPlanarBoundaryEdges = new List<PlanarEdge>();
+            var newPlanarSegments = new HashSet<PlanarSegment>();
+            var newPlanarBoundaryEdges = new HashSet<PlanarEdge>();
             int nextNodeIndex = 0;
             foreach (var vertex in mesh.Vertices)
             {
                 PlanarNode newPlanarNode = new PlanarNode(vertex.X, vertex.Y, nextNodeIndex++);
                 mapVertexToPlanarNode[vertex] = newPlanarNode;
-                newPlanarNodes.Add(newPlanarNode);
             }
             Create_MapNodePairsToSegment_GetSegmentFromNodePair(
             out Action<PlanarSegment> mapNodePairsToSegment,
@@ -105,7 +102,8 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Triangular
                     )
                 );
             }
-            return new PlanarDomain(boundaries, volumes, thicknessSource, newPlanarNodes.ToArray(), newPlanarSegments.ToArray(), newPlanarBoundaryEdges.ToArray());
+            return new PlanarDomain(boundaries, volumes, thicknessSource, 
+                mapVertexToPlanarNode.Values.ToHashSet(), newPlanarSegments, newPlanarBoundaryEdges);
         }
         private static void Create_MapNodePairsToSegment_GetSegmentFromNodePair(
             out Action<PlanarSegment> mapNodePairsToSegment,

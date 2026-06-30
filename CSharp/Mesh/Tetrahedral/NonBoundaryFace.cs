@@ -3,14 +3,14 @@
 
     public class NonBoundaryFace : TriangleFaceBase
     {
-        public NonBoundaryFace(Node[] nodes,
-            TetrahedronElement element)
-            : base(nodes, new TetrahedronElement[] {element})
+        public NonBoundaryFace(TetrahedralNode[] nodes,
+            TetrahedralElement element)
+            : base(nodes, new TetrahedralElement[] {element})
         {
 
         }
-        public NonBoundaryFace(Node[] nodes,
-            TetrahedronElement[] elements)
+        public NonBoundaryFace(TetrahedralNode[] nodes,
+            TetrahedralElement[] elements)
             :base(nodes, elements)
         {
 

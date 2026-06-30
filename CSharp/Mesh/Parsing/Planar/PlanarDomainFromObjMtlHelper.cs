@@ -55,9 +55,9 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
             List<RawFace> boundaryFaces = Step6_ExtractBoundaryFaces(classifiedFaces);
 
             DelegateProjectVertex projectVertex = Create_ProjectVertex(resolvedAxis);
-            var getReusedPlanarNode = Create_GetReusedPlanarNode(projectVertex, toleranceMeters, out Func<PlanarNode[]> getAllNodes);
+            var getReusedPlanarNode = Create_GetReusedPlanarNode(projectVertex, toleranceMeters, out Func<HashSet<PlanarNode>> getAllNodes);
             Create_AddGetNodeToSegmentMappings(out Func< PlanarNode[], Volume, PlanarSegment ?> addNodeToSegmentMappings,
-                out Func<PlanarNode, PlanarNode, PlanarSegment[]?> getPlanarSegmentsEdgeBelongsTo, out Func<PlanarSegment[]> getAllSegments);
+                out Func<PlanarNode, PlanarNode, PlanarSegment[]?> getPlanarSegmentsEdgeBelongsTo, out Func<HashSet<PlanarSegment>> getAllSegments);
 
             var mapVolumeNameToVolume = volumes.Entries.ToDictionary(b => b.Name, b => b);
             foreach (RawFace volumeFace in volumeFaces)
@@ -79,7 +79,7 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
             }
             var mapBoundaryNameToBoundary = boundaries.Entries.ToDictionary(b => b.Name, b => b);
             mapMarkerToBoundary = new Dictionary<int, Boundary>();
-            var planarEdges = new List<PlanarEdge>();
+            var planarEdges = new HashSet<PlanarEdge>();
             foreach (RawFace boundaryFace in boundaryFaces)
             {
 
@@ -108,7 +108,7 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
                 }
                 planarEdges.Add(new PlanarEdge(edgePlanarNodes[0], edgePlanarNodes[1], boundary, segmentsBelongsTo!));
             }
-            PlanarDomain domain = new PlanarDomain(boundaries, volumes, thicknessSource, getAllNodes(), getAllSegments(), planarEdges.ToArray());
+            PlanarDomain domain = new PlanarDomain(boundaries, volumes, thicknessSource, getAllNodes(), getAllSegments(), planarEdges);
             return domain;
         }/*
         private static Func<Boundary, int> Create_GetBoundaryMarker(Dictionary<int, Boundary> mapMarkerToBoundary)
@@ -129,7 +129,7 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
         }*/
         private static void Create_AddGetNodeToSegmentMappings(out Func<PlanarNode[], Volume, PlanarSegment?> add,
                 out Func<PlanarNode, PlanarNode, PlanarSegment[]?> getPlanarSegmentsEdgeBelongsTo,
-                out Func<PlanarSegment[]> getAll)
+                out Func<HashSet<PlanarSegment>> getAll)
         {
 
             var mapNodePairsAscendingIndexToSegments = new DictionaryDictionary<int, int, List<PlanarSegment>>();
@@ -173,15 +173,15 @@ namespace FiniteElementAnalysis.Mesh.Parsing.Planar
                 mapNodePairsAscendingIndexToSegments.TryGetValue(indexSmallest, indexLargest, out List<PlanarSegment>? segments);
                 return segments?.ToArray();
             };
-            getAll = () => seenSegments.GetValues().ToArray();
+            getAll = () => seenSegments.GetValues().ToHashSet();
         }
         private static Func<RawVertex, bool, PlanarNode> Create_GetReusedPlanarNode(DelegateProjectVertex projectVertex,
             double tolerance,
-            out Func<PlanarNode[]> getAllNodes)
+            out Func<HashSet<PlanarNode>> getAllNodes)
         {
-            var pool = new List<PlanarNode>();
+            var pool = new HashSet<PlanarNode>();
             int nextNodeIndex = 0;
-            getAllNodes = () => pool.ToArray();
+            getAllNodes = () => pool;
             return (rawVertex, canCreateNew) =>
             {
 

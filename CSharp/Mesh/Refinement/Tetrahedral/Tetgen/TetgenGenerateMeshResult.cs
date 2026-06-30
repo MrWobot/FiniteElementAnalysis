@@ -72,7 +72,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
                             string secondLine = lines[lineIndex++];
                             var firstPair = extractLineNodes(firstLine);
                             var secondPair = extractLineNodes(secondLine);
-                            Node[] nodes = ReadNodes(GetBoundaryAlwaysNull);
+                            TetrahedralNode[] nodes = ReadNodes(GetBoundaryAlwaysNull);
                             var firstLineA = nodes[firstPair.Item1];
                             var firstLineB = nodes[firstPair.Item2];
                             var secondLineA = nodes[secondPair.Item1];
@@ -92,7 +92,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
                                 return nodes;
                             };
                             var extractedNodes = extractLineNodes(line);
-                            Node[] nodes = ReadNodes(GetBoundaryAlwaysNull);
+                            TetrahedralNode[] nodes = ReadNodes(GetBoundaryAlwaysNull);
                             sb.AppendLine($"Two facets are overlapping at triangle: [{string.Join(",", extractedNodes.Select(i => nodes[i].ToString()))}].");
                         }
                         else
@@ -109,7 +109,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
                             string secondLine = lines[lineIndex++];
                             var firstPair = extractLineNodes(firstLine);
                             var secondPair = extractLineNodes(secondLine);
-                            Node[] nodes = ReadNodes(GetBoundaryAlwaysNull);
+                            TetrahedralNode[] nodes = ReadNodes(GetBoundaryAlwaysNull);
                             var firstLineA = nodes[firstPair.Item1];
                             var firstLineB = nodes[firstPair.Item2];
                             var secondLineA = nodes[secondPair.Item1];
@@ -135,15 +135,15 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
             Dictionary<int, Boundary> mapMarkerToBoundary)
         {
             DelegateGetBoundaryFromMarker getBoundaryFromMarker = Get_GetBoundaryFromMarker(mapMarkerToBoundary);
-            Node[] nodes = ReadNodes(getBoundaryFromMarker);
-            Func<int, Node> getNodeFromIndex = (i) => nodes[i];
+            TetrahedralNode[] nodes = ReadNodes(getBoundaryFromMarker);
+            Func<int, TetrahedralNode> getNodeFromIndex = (i) => nodes[i];
             /*HandleFaceMapping(
                 out Action<Node, TriangleFace> addNodeForFaceMapping,
                 out Func<Node[], TriangleFace[]> getFacesForTetrahedron);*/
-            TetrahedronElement[] elements = ReadElements(volumes.Entries, getNodeFromIndex);
-            DictionaryDictionaryDictionaryList<int, TetrahedronElement> mapThreeNodeIdentifiersToElement
-                 = new DictionaryDictionaryDictionaryList<int, TetrahedronElement>();
-            foreach (TetrahedronElement element in elements)
+            TetrahedralElement[] elements = ReadElements(volumes.Entries, getNodeFromIndex);
+            DictionaryDictionaryDictionaryList<int, TetrahedralElement> mapThreeNodeIdentifiersToElement
+                 = new DictionaryDictionaryDictionaryList<int, TetrahedralElement>();
+            foreach (TetrahedralElement element in elements)
             {
 
                 foreach (int[] combination in element.CombinationsOfThreeNodesIdentifiersAscending)
@@ -153,9 +153,9 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
             }
             BoundaryFace[] boundaryFaces = ReadBoundaryFaces(getNodeFromIndex, getBoundaryFromMarker,
                 mapThreeNodeIdentifiersToElement.QueryNoChecks);
-            var bvh = new BVH3D<TetrahedronElement>(elements.ToList(),
+            var bvh = new BVH3D<TetrahedralElement>(elements.ToList(),
                 e => e.BoundingCuboid, (e, p) => e.IsPointInside(p));
-            return new TetrahedralMesh(boundaries, volumes, nodes, boundaryFaces, elements, bvh);
+            return new TetrahedralMesh(boundaries, volumes, nodes.ToHashSet(), boundaryFaces.ToHashSet(), elements.ToHashSet(), bvh);
         }
         private DelegateGetBoundaryFromMarker Get_GetBoundaryFromMarker(
             Dictionary<int, Boundary> mapMarkerToBoundary)
@@ -183,8 +183,8 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
         /// <param name="getElementFromNodeIdentifiers"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        private BoundaryFace[] ReadBoundaryFaces(Func<int, Node> getNodeFromIndex,
-            DelegateGetBoundaryFromMarker getBoundaryFromMarker, Func<int, int, int, List<TetrahedronElement>> getElementFromNodeIdentifiers)
+        private BoundaryFace[] ReadBoundaryFaces(Func<int, TetrahedralNode> getNodeFromIndex,
+            DelegateGetBoundaryFromMarker getBoundaryFromMarker, Func<int, int, int, List<TetrahedralElement>> getElementFromNodeIdentifiers)
         {
             string[] faceFileLines = File.ReadAllLines(FaceFilePath);
             string firstLine = faceFileLines[0];
@@ -192,17 +192,17 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
             int nFaces = int.Parse(firstLineEntries[0]);
             bool hasBoundaryMarker = int.Parse(firstLineEntries[1]) > 0;
             BoundaryFace[] faces = new BoundaryFace[nFaces];
-            HashSet<Node> seenNodes = new HashSet<Node>();
+            HashSet<TetrahedralNode> seenNodes = new HashSet<TetrahedralNode>();
             foreach (string faceFileLine in faceFileLines.Skip(1).Take(nFaces))
             {
                 string[] lineEntries = faceFileLine.Split(' ').Where(e => e != "").ToArray();
                 int index = int.Parse(lineEntries[0]);
-                Node[] nodes = lineEntries
+                TetrahedralNode[] nodes = lineEntries
                     .Skip(1)
                     .Take(3)
                     .Select(e => getNodeFromIndex(int.Parse(e)))
                     .ToArray();
-                foreach (Node node in nodes)
+                foreach (TetrahedralNode node in nodes)
                     seenNodes.Add(node);
                 Boundary? boundary = null;
                 if (hasBoundaryMarker)
@@ -226,7 +226,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
             }
             return faces;
         }
-        private TetrahedronElement[] ReadElements(Volume[] volumes, Func<int, Node> getNodeFromIndex)
+        private TetrahedralElement[] ReadElements(Volume[] volumes, Func<int, TetrahedralNode> getNodeFromIndex)
         {
             string[] elementFileLines = File.ReadAllLines(ElementFilePath);
             string firstLine = elementFileLines[0];
@@ -237,13 +237,13 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
             if (!hasRegions) throw new Exception("Something went wrong. Should always have region attributes to link tetrahedrons to volumes they belong to!");
             if (nodesPerTet != 4)
                 throw new NotImplementedException($"Not implemented for {nodesPerTet} node tetrahedrons");
-            TetrahedronElement[] elements = new TetrahedronElement[nElements];
+            TetrahedralElement[] elements = new TetrahedralElement[nElements];
             Dictionary<int, Volume> mapRegionToVolume = volumes.ToDictionary(v => v.Region, volumes => volumes);
             foreach (string elementFileLine in elementFileLines.Skip(1).Take(nElements))
             {
                 string[] lineEntries = elementFileLine.Split(' ').Where(e => e != "").ToArray();
                 int index = int.Parse(lineEntries[0]);
-                Node[] nodes = lineEntries
+                TetrahedralNode[] nodes = lineEntries
                     .Skip(1)
                     .Take(4)
                     .Select(e => getNodeFromIndex(int.Parse(e)))
@@ -253,12 +253,12 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
                 {
                     throw new Exception($"Had no volume with region attribute {region} for element {nodes[0].ToString()} {nodes[1].ToString()} {nodes[2].ToString()} {nodes[2].ToString()}");
                 }
-                TetrahedronElement element = new TetrahedronElement(index, nodes, volume);
+                TetrahedralElement element = new TetrahedralElement(index, nodes, volume);
                 elements[index] = element;
             }
             return elements;
         }
-        private Node[] ReadNodes(DelegateGetBoundaryFromMarker getBoundaryFromMarker)
+        private TetrahedralNode[] ReadNodes(DelegateGetBoundaryFromMarker getBoundaryFromMarker)
         {
             //COULDBETOBLAME removed index for node identifeir which was renamed to index and then used index directly
             string[] nodeFileLines = File.ReadAllLines(NodeFilePath);
@@ -267,7 +267,7 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
             int nNodes = int.Parse(firstLineEntries[0]);
             int nAttributes = int.Parse(firstLineEntries[2]);
             bool hasBoundaryMarker = int.Parse(firstLineEntries[3]) > 0;
-            Node[] nodes = new Node[nNodes];
+            TetrahedralNode[] nodes = new TetrahedralNode[nNodes];
             int xLineIndex = nAttributes + 1;
             int yLineIndex = nAttributes + 2;
             int zLineIndex = nAttributes + 3;
@@ -300,14 +300,14 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
                 double x = double.Parse(lineEntries[xLineIndex]);
                 double y = double.Parse(lineEntries[yLineIndex]);
                 double z = double.Parse(lineEntries[zLineIndex]);
-                Node node = new Node(index, x, y, z, attributes);
+                TetrahedralNode node = new TetrahedralNode(index, x, y, z, attributes);
                 nodes[index] = node;
             }
             return nodes;
         }
         private SkippedFaceFile ReadSkippedFaceFile()
         {
-            Node[] nodes = ReadNodes(GetBoundaryAlwaysNull);
+            TetrahedralNode[] nodes = ReadNodes(GetBoundaryAlwaysNull);
             string[] lines = File.ReadAllLines(MeshSkippedFaceFilePath);
             string firstLine = lines[0];
             string[] firstLineSplits = firstLine.Split(' ');
@@ -321,9 +321,9 @@ namespace FiniteElementAnalysis.Mesh.Refinement.Tetrahedral.Tetgen
                     int nodeIndexA = int.Parse(splits[1]);
                     int nodeIndexB = int.Parse(splits[2]);
                     int nodeIndexC = int.Parse(splits[3]);
-                    Node nodeA = nodes[nodeIndexA];
-                    Node nodeB = nodes[nodeIndexB];
-                    Node nodeC = nodes[nodeIndexC];
+                    TetrahedralNode nodeA = nodes[nodeIndexA];
+                    TetrahedralNode nodeB = nodes[nodeIndexB];
+                    TetrahedralNode nodeC = nodes[nodeIndexC];
                     return new SkippedFaceFileEntry(nodeIndexA, nodeIndexA, nodeIndexB, nodeA, nodeB, nodeC);
                 };
             var pairs = new List<SkippedFaceFileEntryPair>();

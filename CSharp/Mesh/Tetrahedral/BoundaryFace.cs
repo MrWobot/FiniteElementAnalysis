@@ -43,7 +43,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                 double xSum = 0, ySum = 0, zSum = 0;
                 foreach (INode node in Nodes)
                 {
-                    Node n = (Node)node;
+                    TetrahedralNode n = (TetrahedralNode)node;
                     xSum += n.X;
                     ySum += n.Y;
                     zSum += n.Z;
@@ -53,14 +53,14 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         }
         public Boundary Boundary { get; }
 
-        public BoundaryFace(Node[] nodes,
-            Boundary boundary, TetrahedronElement element)
-            : base(nodes, new TetrahedronElement[] {element})
+        public BoundaryFace(TetrahedralNode[] nodes,
+            Boundary boundary, TetrahedralElement element)
+            : base(nodes, new TetrahedralElement[] {element})
         {
             Boundary = boundary;
         }
-        public BoundaryFace(Node[] nodes, 
-            Boundary boundary, TetrahedronElement[] elements)
+        public BoundaryFace(TetrahedralNode[] nodes, 
+            Boundary boundary, TetrahedralElement[] elements)
             :base(nodes, elements)
         {
             Boundary = boundary;

@@ -56,8 +56,8 @@ namespace FiniteElementAnalysis.Results
         private double[] GetNodalVolumeCurrentDensities()
         {
 
-            INode[] nodes = _ResultMesh.Nodes;
-            double[] values = new double[nodes.Length * _ResultMesh.NodePositionLength];
+            IReadOnlySet<INode> nodes = _ResultMesh.Nodes;
+            double[] values = new double[nodes.Count * _ResultMesh.NodePositionLength];
             int valuesIndex = 0;
             foreach (INode node in nodes)
             {
@@ -159,18 +159,18 @@ namespace FiniteElementAnalysis.Results
         string operationIdentifier,
         CompositeProgressHandler? parentProgressHandler)
         {
-            double averageVolume = _ResultMesh.Elements.Select(e => e.Measure).Sum() / _ResultMesh.Elements.Length;
+            double averageVolume = _ResultMesh.Elements.Select(e => e.Measure).Sum() / _ResultMesh.Elements.Count;
 
             double averageR0 = 0;
-            foreach (Node thisNode in _ResultMesh.Nodes.Cast<Node>())
+            foreach (TetrahedralNode thisNode in _ResultMesh.Nodes.Cast<TetrahedralNode>())
             {
                 Vector3D total = new Vector3D(0, 0, 0);
                 var elementsContainingNode =
-                    _ResultMesh.MapNodeToElementsBelongsTo[thisNode.Identifier];
+                    _ResultMesh.GetElementsThatNodeBelongsTo(thisNode.Identifier);
                 Vector3D totalForElements = Vector3D.Zeros();
                 foreach (var element in elementsContainingNode)
                 {
-                    Node[] nodes = element.Nodes.Cast<Node>().ToArray();
+                    TetrahedralNode[] nodes = element.Nodes.Cast<TetrahedralNode>().ToArray();
                     double conductivity = ((StaticCurrentVolume)element.VolumeBelongsTo!).Conductivity;
 
 
@@ -216,13 +216,13 @@ namespace FiniteElementAnalysis.Results
                     }
                 }
                 total += totalForElements.Scale(1d / elementsContainingNode.Count());
-                int globalIndex = meshBeingAppliedTo.MapNodeIdentifierToGlobalIndex[thisNode.Identifier];
+                int globalIndex = meshBeingAppliedTo.GetGlobalIndexForNode(thisNode.Identifier);
                 averageR0 += total.X;
                 rhs[globalIndex * 3] = total.X;
                 rhs[globalIndex * 3 + 1] = total.Y;
                 rhs[globalIndex * 3 + 2] = total.Z;
             }
-            averageR0 = averageR0 / _ResultMesh.Nodes.Length;
+            averageR0 = averageR0 / _ResultMesh.Nodes.Count;
         }
         
         public void ApplyVolumeCurrentDensitiesProperUntested(
@@ -236,7 +236,7 @@ namespace FiniteElementAnalysis.Results
             int nSpatialDims = _ResultMesh.NodePositionLength;
             foreach (INode node in meshBeingAppliedTo.Nodes)
             {
-                var elementsContainingNode = _ResultMesh.MapNodeToElementsBelongsTo[node.Identifier];
+                var elementsContainingNode = _ResultMesh.GetElementsThatNodeBelongsTo(node.Identifier);
                 double[] weightedCurrentDensity = new double[nSpatialDims];
                 double totalVolume = 0;
                 foreach (var element in elementsContainingNode)
@@ -247,7 +247,7 @@ namespace FiniteElementAnalysis.Results
                         weightedCurrentDensity[k] += currentDensity[k] * elementVolume;
                     totalVolume += elementVolume;
                 }
-                int globalIndex = meshBeingAppliedTo.MapNodeIdentifierToGlobalIndex[node.Identifier];
+                int globalIndex = meshBeingAppliedTo.GetGlobalIndexForNode(node.Identifier);
                 for (int k = 0; k < nSpatialDims; k++)
                     rhs[globalIndex * nSpatialDims + k] = weightedCurrentDensity[k] / totalVolume;
             }
@@ -575,9 +575,8 @@ namespace FiniteElementAnalysis.Results
         {
             int nSpatialDims = _ResultMesh.NodePositionLength;
             double[] totalWeightedCurrentDensity = new double[nSpatialDims];
-            if (!_ResultMesh.MapNodeToElementsBelongsTo.TryGetValue(nodeIdentifier,
-                out List<IElement>? elementsContainingNode))
-            {
+            IReadOnlySet<IElement>? elementsContainingNode = _ResultMesh.GetElementsThatNodeBelongsTo(nodeIdentifier);
+            if (!elementsContainingNode.Any()) {
                 return totalWeightedCurrentDensity;
             }
             double totalVolume = 0;

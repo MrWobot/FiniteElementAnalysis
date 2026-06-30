@@ -87,11 +87,10 @@ namespace FiniteElementAnalysis.Solvers
             // Log the start of the infinity boundary application
             Console.WriteLine("Applying infinity boundary condition...");
 
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             foreach (INode node in nodes)
             {
                 // Multiply global index by the number of degrees of freedom (DOF)
-                int globalIndex = mapNodeToGlobalIndex[node.Identifier] * _FieldDOFInfo.NDegreesOfFreedom;
+                int globalIndex = mesh.GetGlobalIndexForNode(node.Identifier) * _FieldDOFInfo.NDegreesOfFreedom;
 
                 // Modify the global matrix (K) and the right-hand side vector (rhs)
                 // for the infinity boundary to allow natural decay of the magnetic vector potential

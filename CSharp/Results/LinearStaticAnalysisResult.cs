@@ -39,14 +39,14 @@ namespace FiniteElementAnalysis.Results
         public static IMesh DisplaceMesh(IMesh existingMesh, double[] displacements, bool toNewMesh = true)
         {
             IMesh newMesh = toNewMesh?existingMesh.Clone():existingMesh;
-            int displacementsIndex = 0;
-            if (newMesh.Nodes.Length < 1) return newMesh;
-            if (displacements.Length != newMesh.Nodes.Length * newMesh.Nodes[0].Position.Length) {
+            if (newMesh.Nodes.Count < 1) return newMesh;
+            if (displacements.Length != newMesh.Nodes.Count * newMesh.NodePositionLength) {
                 throw new DataMisalignedException();
             }
             foreach (INode newNode in newMesh.Nodes) {
+                int nodeGlobalIndex = existingMesh.GetGlobalIndexForNode(newNode.Identifier) * existingMesh.NodePositionLength;
                 for (int positionIndex = 0; positionIndex < newNode.Position.Length; positionIndex++) {
-                    newNode.Position[positionIndex] = displacements[displacementsIndex++];
+                    newNode.Position[positionIndex] = displacements[nodeGlobalIndex+positionIndex];
                 }
             }
             return newMesh;
@@ -107,10 +107,10 @@ namespace FiniteElementAnalysis.Results
             out double[]? elementsStressVector,
             out double[]? elementsStrainVector)
         {
-            nodalStressVector = createNodalStressVector ? new double[_ResultMesh.Nodes.Length * CoreResult.NFieldComponents] : null;
-            nodalStrainVector = createNodalStrainVector ? new double[_ResultMesh.Nodes.Length * CoreResult.NFieldComponents] : null;
-            elementsStressVector = createElementsStressVector ? new double[_ResultMesh.Elements.Length * CoreResult.NFieldComponents] : null;
-            elementsStrainVector = createElementsStrainVector ? new double[_ResultMesh.Elements.Length * CoreResult.NFieldComponents] : null;
+            nodalStressVector = createNodalStressVector ? new double[_ResultMesh.Nodes.Count * CoreResult.NFieldComponents] : null;
+            nodalStrainVector = createNodalStrainVector ? new double[_ResultMesh.Nodes.Count * CoreResult.NFieldComponents] : null;
+            elementsStressVector = createElementsStressVector ? new double[_ResultMesh.Elements.Count * CoreResult.NFieldComponents] : null;
+            elementsStrainVector = createElementsStrainVector ? new double[_ResultMesh.Elements.Count * CoreResult.NFieldComponents] : null;
             int elementsIndex = 0;
             var mapNodeToStrainsVolumeSum = createNodalStrainVector ? new Dictionary<int, double[]>() : null;
             var mapNodeToStressVolumeSum = createNodalStressVector ? new Dictionary<int, double[]>() : null;
@@ -119,11 +119,11 @@ namespace FiniteElementAnalysis.Results
             foreach (IElement element in _ResultMesh.Elements)
             {
                 int nDof = CoreResult.NDegreesOfFreedom;
-                double[] elementDisplacementVector = new double[element.Nodes.Length * nDof];
+                double[] elementDisplacementVector = new double[element.Nodes.Count * nDof];
                 int elementDisplacementIndex = 0;
                 foreach (INode elementNode in element.Nodes)
                 {
-                    int globalDisplacementIndex = _ResultMesh.MapNodeIdentifierToGlobalIndex[elementNode.Identifier] * nDof;
+                    int globalDisplacementIndex = _ResultMesh.GetGlobalIndexForNode(elementNode.Identifier) * nDof;
                     for (int j = 0; j < nDof; j++)
                     {
                         elementDisplacementVector[elementDisplacementIndex++] = Displacements[globalDisplacementIndex++];

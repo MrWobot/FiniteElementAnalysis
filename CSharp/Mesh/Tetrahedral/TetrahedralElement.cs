@@ -9,22 +9,22 @@ using FiniteElementAnalysis.Mesh.Interfaces;
 namespace FiniteElementAnalysis.Mesh.Tetrahedral
 {
 
-    public class TetrahedronElement:IElement
+    public class TetrahedralElement:IElement
     {
         public int Identifier { get; }
-        public INode[] Nodes { get; }
+        public IReadOnlyList<INode> Nodes { get; }
         public Volume VolumeBelongsTo { get; }
 
         public double Measure => ElementVolume;
-        public Node NodeA { get { return (Node)Nodes[0]; } }
-        public Node NodeB { get { return (Node)Nodes[1]; } }
-        public Node NodeC { get { return (Node)Nodes[2]; } }
-        public Node NodeD { get { return (Node)Nodes[3]; } }
-        public Node[] NodesOrderedByIdentifiers
+        public TetrahedralNode NodeA { get { return (TetrahedralNode)Nodes[0]; } }
+        public TetrahedralNode NodeB { get { return (TetrahedralNode)Nodes[1]; } }
+        public TetrahedralNode NodeC { get { return (TetrahedralNode)Nodes[2]; } }
+        public TetrahedralNode NodeD { get { return (TetrahedralNode)Nodes[3]; } }
+        public TetrahedralNode[] NodesOrderedByIdentifiers
         {
             get
             {
-                return Nodes.OrderBy(n => n.Identifier).Cast<Node>() .ToArray();
+                return Nodes.OrderBy(n => n.Identifier).Cast<TetrahedralNode>() .ToArray();
             }
         }
         public int[] NodeIdentifiersLowToHigh
@@ -333,7 +333,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         }*/
 
         private double? _SignedVolumeMe;
-        public TetrahedronElement(int identifier, Node[] nodes, Volume volume)
+        public TetrahedralElement(int identifier, TetrahedralNode[] nodes, Volume volume)
         {
             if (identifier < 0) throw new ArgumentException($"identifier cannot be less than zero. Received value {identifier}");
             if (nodes.Length != 4)
@@ -360,7 +360,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
                     // Check the other nodes to find the minimum and maximum extents
                     foreach (var iNode in Nodes.Skip(1))
                     {
-                        Node node = (Node)iNode;
+                        TetrahedralNode node = (TetrahedralNode)iNode;
                         if (node.X < minX) minX = node.X;
                         if (node.Y < minY) minY = node.Y;
                         if (node.Z < minZ) minZ = node.Z;
@@ -657,7 +657,7 @@ namespace FiniteElementAnalysis.Mesh.Tetrahedral
         }*/
         public override bool Equals(object? obj)
         {
-            return obj is TetrahedronElement element &&
+            return obj is TetrahedralElement element &&
                    Identifier == element.Identifier;
         }
 

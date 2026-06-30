@@ -55,7 +55,6 @@ namespace FiniteElementAnalysis.Solvers
             double[] rhs
         )
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             INode[]? nodes = mesh.GetPrimitivesForBoundary(boundary)?
                 .SelectMany(p => p.Nodes)
                 .GroupBy(n => n)
@@ -64,7 +63,7 @@ namespace FiniteElementAnalysis.Solvers
             if (nodes == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces or nodes.");
             foreach (INode node in nodes)
             {
-                int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                int nodeIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                 FixValueInUnknowns(K, rhs, nodeIndex, boundary.Potential);
             }
         }
@@ -72,8 +71,7 @@ namespace FiniteElementAnalysis.Solvers
         private static void ApplyFixedNormalElectricFieldNeumannBoundary(FixedNormalElectricFieldNeumannBoundary boundary,
             IMesh mesh, double[] rhs)
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
-            IBoundaryPrimitive[]? faces = mesh.GetPrimitivesForBoundary(boundary);
+            IReadOnlyList<IBoundaryPrimitive>? faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces.");
             foreach (IBoundaryPrimitive primitive in faces)
             {
@@ -84,7 +82,7 @@ namespace FiniteElementAnalysis.Solvers
                     * ((ElectrostaticsVolume)primitive.Elements[0].VolumeBelongsTo).TotalPermittivity;
                 foreach (INode node in primitive.Nodes)
                 {
-                    int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                    int nodeIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                     rhs[nodeIndex] += nodeContribution;
                 }
             }
@@ -93,8 +91,7 @@ namespace FiniteElementAnalysis.Solvers
         private static void ApplyFixedSurfaceChargeDensityNeumannBoundary(FixedSurfaceChargeDensityNeumannBoundary boundary,
             IMesh mesh, double[] rhs)
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
-            IBoundaryPrimitive[]? faces = mesh.GetPrimitivesForBoundary(boundary);
+            IReadOnlyList<IBoundaryPrimitive>? faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces.");
             foreach (IBoundaryPrimitive primitive in faces)
             {
@@ -103,7 +100,7 @@ namespace FiniteElementAnalysis.Solvers
                 double nodeContribution = primitive.Measure * thicknessIntegral / primitive.Nodes.Length * boundary.ChargeDensityCoulombsPerMeterSquared;
                 foreach (INode node in primitive.Nodes)
                 {
-                    int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                    int nodeIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                     rhs[nodeIndex] += nodeContribution;
                 }
             }
@@ -124,7 +121,6 @@ namespace FiniteElementAnalysis.Solvers
                 throw new InvalidOperationException("FloatingPotentialBoundary must have one assigned index before application.");
 
             int lambdaIndex = boundary.IndicesAssigned[0];
-            var mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
             var faces = mesh.GetPrimitivesForBoundary(boundary);
             if (faces == null) throw new Exception($"Boundary '{boundary.Name}' has no associated faces.");
 
@@ -134,7 +130,7 @@ namespace FiniteElementAnalysis.Solvers
             double coeff = 1.0 / boundaryNodes.Length;
             foreach (INode node in boundaryNodes)
             {
-                int nodeIndex = mapNodeToGlobalIndex[node.Identifier];
+                int nodeIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                 K[nodeIndex, lambdaIndex] += coeff;
                 K[lambdaIndex, nodeIndex] += coeff;
             }

@@ -177,8 +177,8 @@ namespace FiniteElementAnalysis.Solvers
         private void ApplyPressureNeumannBoundary(
     PressureNeumannBoundary boundary, IMesh mesh, double[] rhs)
         {
-            IBoundaryPrimitive[]? primitives = mesh.GetPrimitivesForBoundary(boundary);
-            if (primitives == null || primitives.Length == 0)
+            IReadOnlyList<IBoundaryPrimitive>? primitives = mesh.GetPrimitivesForBoundary(boundary);
+            if (primitives == null || primitives.Count == 0)
                 throw new InvalidOperationException("No primitives found for boundary.");
 
             foreach (IBoundaryPrimitive primitive in primitives)
@@ -191,7 +191,7 @@ namespace FiniteElementAnalysis.Solvers
 
                 foreach (INode node in primitive.Nodes)
                 {
-                    int globalNodeIndex = mesh.MapNodeIdentifierToGlobalIndex[node.Identifier];
+                    int globalNodeIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                     for (int dof = 0; dof < _FieldDOFInfo.NDegreesOfFreedom; dof++)
                     {
                         rhs[globalNodeIndex * _FieldDOFInfo.NDegreesOfFreedom + dof]
@@ -203,8 +203,8 @@ namespace FiniteElementAnalysis.Solvers
         private void ApplyFixedNormalForceNeumannBoundary(
             FixedNormalForceNeumannBoundary boundary, IMesh mesh, double[] rhs)
         {
-            IBoundaryPrimitive[]? primitives = mesh.GetPrimitivesForBoundary(boundary);
-            if (primitives == null || primitives.Length == 0)
+            IReadOnlyList<IBoundaryPrimitive>? primitives = mesh.GetPrimitivesForBoundary(boundary);
+            if (primitives == null || primitives.Count == 0)
                 throw new InvalidOperationException("No primitives found for boundary.");
 
             // Total effective area including thickness
@@ -233,7 +233,7 @@ namespace FiniteElementAnalysis.Solvers
 
                 foreach (INode node in primitive.Nodes)
                 {
-                    int globalNodeIndex = mesh.MapNodeIdentifierToGlobalIndex[node.Identifier];
+                    int globalNodeIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                     for (int dof = 0; dof < _FieldDOFInfo.NDegreesOfFreedom; dof++)
                     {
                         rhs[globalNodeIndex * _FieldDOFInfo.NDegreesOfFreedom + dof]

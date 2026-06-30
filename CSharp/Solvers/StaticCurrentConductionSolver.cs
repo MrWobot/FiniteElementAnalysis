@@ -58,8 +58,7 @@ namespace FiniteElementAnalysis.Solvers
         private static void ApplyFixedCurrentBoundary(
             FixedCurrentBoundary boundary, IMesh mesh, IBigMatrix K, double[] rhs, string operationIdentifier)
         {
-            Dictionary<int, int> mapNodeToGlobalIndex = mesh.MapNodeIdentifierToGlobalIndex;
-            IBoundaryPrimitive[]? primitives = mesh.GetPrimitivesForBoundary(boundary);
+            IReadOnlyList<IBoundaryPrimitive>? primitives = mesh.GetPrimitivesForBoundary(boundary);
             if (primitives == null) return;
 
             // Total effective area including thickness
@@ -85,7 +84,7 @@ namespace FiniteElementAnalysis.Solvers
 
                 foreach (INode node in primitive.Nodes)
                 {
-                    int globalIndex = mapNodeToGlobalIndex[node.Identifier];
+                    int globalIndex = mesh.GetGlobalIndexForNode(node.Identifier);
                     rhs[globalIndex] += currentDensity * measure / n;
                 }
             }

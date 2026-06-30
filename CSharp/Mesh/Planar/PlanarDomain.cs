@@ -15,20 +15,42 @@ namespace FiniteElementAnalysis.Mesh.Planar
     {
         public BoundariesCollection Boundaries { get; }
         public VolumesCollection Volumes { get; }
-        public INode[] Nodes { get; }
-        public IElement[] Elements { get; }
-        public IBoundaryPrimitive[] Edges { get; }
+        public IReadOnlySet<PlanarNode> PlanarNodes { get; }
+        private IReadOnlySet<INode>? _Nodes;
+        public IReadOnlySet<INode> Nodes { 
+            get {
+                if (_Nodes == null) {
+                    _Nodes = new HashSet<INode>(PlanarNodes);
+                }
+                return _Nodes;
+            } 
+        }
+        public IReadOnlySet<PlanarSegment> PlanarSegments { get; }
+        private IReadOnlySet<IElement>? _Elements;
+        public IReadOnlySet<IElement> Elements { 
+            get {
+                if (_Elements == null) {
+                    _Elements = new HashSet<IElement>(PlanarSegments);
+                }
+                return _Elements;
+            } 
+        }
+        public IReadOnlySet<PlanarEdge> PlanarEdges { get; }
         public PlanarThicknessSourceBase ThicknessSource { get; }
-        public PlanarDomain(BoundariesCollection boundaries, VolumesCollection volumes,
+        public PlanarDomain(
+            BoundariesCollection boundaries, 
+            VolumesCollection volumes,
             PlanarThicknessSourceBase thicknessSource,
-            PlanarNode[] nodes, PlanarSegment[] segments, PlanarEdge[] edges)
+            IReadOnlySet<PlanarNode> planarNodes, 
+            IReadOnlySet<PlanarSegment> planarSegments,
+            IReadOnlySet<PlanarEdge> planarEdges)
         {
             Boundaries = boundaries;
             Volumes = volumes;
             ThicknessSource = thicknessSource;
-            Nodes = nodes;
-            Edges = edges;
-            Elements = segments;
+            PlanarNodes = planarNodes;
+            PlanarEdges = planarEdges;
+            PlanarSegments= planarSegments;
             ValidateDomainComplete();
         }
         private void ValidateDomainComplete()
@@ -63,14 +85,13 @@ namespace FiniteElementAnalysis.Mesh.Planar
                 double xMax;
                 double yMin;
                 double yMax;
-                PlanarNode firstNode = (PlanarNode)Nodes[0];
+                PlanarNode firstNode = PlanarNodes.First();
                 xMin = firstNode.X;
                 xMax = xMin;
                 yMin = firstNode.Y;
                 yMax = yMin;
-                for (int i = 1; i < Nodes.Length; i++)
+                foreach (PlanarNode node in PlanarNodes)
                 {
-                    var node = (PlanarNode)Nodes[i];
                     double x = node.X;
                     double y = node.Y;
                     if (xMin > x)
@@ -98,47 +119,37 @@ namespace FiniteElementAnalysis.Mesh.Planar
         public int NNodesPerElement => 3;
 
 
-        private Dictionary<int, int>? _MapNodeToGlobalIndex;
-        public Dictionary<int, int> MapNodeIdentifierToGlobalIndex
-        {
-            get
-            {
+        private Dictionary<int, int>? _MapNodeIdentifierToGlobalIndex;
 
+        public int GetGlobalIndexForNode(int nodeIdentifier)
+        {
                 int nodeIndex = 0;
-                if (_MapNodeToGlobalIndex == null)
+                if (_MapNodeIdentifierToGlobalIndex == null)
                 {
-                    _MapNodeToGlobalIndex = Nodes.ToDictionary(n => n.Identifier, n => nodeIndex++);
+                    _MapNodeIdentifierToGlobalIndex = Nodes.ToDictionary(n => n.Identifier, n => nodeIndex++);
                 }
-                return _MapNodeToGlobalIndex;
-            }
+                return _MapNodeIdentifierToGlobalIndex[nodeIdentifier];
         }
 
-        private Dictionary<int, List<IElement>>? _MapNodeToElementsBelongsTo;
-        public Dictionary<int, List<IElement>> MapNodeToElementsBelongsTo
+        private Dictionary<int, HashSet<IElement>>? _MapNodeToElementsBelongsTo;
+        public IReadOnlySet<IElement> GetElementsThatNodeBelongsTo(int nodeIdentifier)
         {
-            get
+            if (_MapNodeToElementsBelongsTo == null)
             {
-                if (_MapNodeToElementsBelongsTo == null)
+                _MapNodeToElementsBelongsTo = new Dictionary<int, HashSet<IElement>>();
+                foreach (var element in Elements)
                 {
-                    _MapNodeToElementsBelongsTo = new Dictionary<int, List<IElement>>();
-                    if (Elements.GroupBy(e => e.Identifier).Where(g => g.Count() > 1).Any())
+                    foreach (var node in element.Nodes)
                     {
-
-                    }
-                    foreach (var element in Elements)
-                    {
-                        foreach (var node in element.Nodes)
+                        if (!_MapNodeToElementsBelongsTo.ContainsKey(node.Identifier))
                         {
-                            if (!_MapNodeToElementsBelongsTo.ContainsKey(node.Identifier))
-                            {
-                                _MapNodeToElementsBelongsTo[node.Identifier] = new List<IElement>();
-                            }
-                            _MapNodeToElementsBelongsTo[node.Identifier].Add(element);
+                            _MapNodeToElementsBelongsTo[node.Identifier] = new HashSet<IElement>();
                         }
+                        _MapNodeToElementsBelongsTo[node.Identifier].Add(element);
                     }
                 }
-                return _MapNodeToElementsBelongsTo;
             }
+            return _MapNodeToElementsBelongsTo[nodeIdentifier];
         }
 
         public bool IsPartOfResult { get; set; }
@@ -181,11 +192,11 @@ namespace FiniteElementAnalysis.Mesh.Planar
         }
         private Dictionary<Boundary, IBoundaryPrimitive[]>? _MapBoundaryToPrimatives;
 
-        public IBoundaryPrimitive[] GetPrimitivesForBoundary(Boundary boundary)
+        public IReadOnlyList<IBoundaryPrimitive> GetPrimitivesForBoundary(Boundary boundary)
         {
             if (_MapBoundaryToPrimatives == null)
             {
-                _MapBoundaryToPrimatives = Edges
+                _MapBoundaryToPrimatives = PlanarEdges
                     .GroupBy(e => e.Boundary)
                     .ToDictionary(
                         g => g.First().Boundary, 
@@ -201,47 +212,31 @@ namespace FiniteElementAnalysis.Mesh.Planar
         {
             var createNewNode = (PlanarNode oldNode) => new PlanarNode(oldNode.X, oldNode.Y, oldNode.Identifier);
             var mapOldNodeToNewNode = new Dictionary<PlanarNode, PlanarNode>();
-            int expectedNodeIndex = 0;
-            var newNodes = new List<PlanarNode>();
             foreach (var oldNode in Nodes.Cast<PlanarNode>())
             {
                 PlanarNode newNode = createNewNode(oldNode);
-                if (expectedNodeIndex != oldNode.Identifier || expectedNodeIndex != newNode.Identifier)
-                {
-                    throw new Exception("Identifier didn't match?");
-                }
                 mapOldNodeToNewNode[oldNode] = newNode;
-                newNodes.Add(newNode);
-                expectedNodeIndex++;
             }
             var getNewNodeFromOld = (INode oldNode) => mapOldNodeToNewNode[(PlanarNode)oldNode];
-            var newElements = new List<PlanarSegment>();
             var mapOldElementToNewElement = new Dictionary<PlanarSegment, PlanarSegment>();
-            int expectedElementIndex = 0;
             foreach (var oldElement in Elements.Cast<PlanarSegment>())
             {
                 PlanarSegment newElement = new PlanarSegment(
                     oldElement.Nodes.Select(getNewNodeFromOld).ToArray(),
                     oldElement.Identifier,
                     oldElement.VolumeBelongsTo);
-                if (expectedElementIndex != oldElement.Identifier || expectedElementIndex != newElement.Identifier)
-                {
-                    throw new Exception("Identifier didn't match?");
-                }
                 mapOldElementToNewElement[oldElement] = newElement;
-                newElements.Add(newElement);
-                expectedElementIndex++;
             }
             var getNewElementFromOld = (IElement oldElement) => mapOldElementToNewElement[(PlanarSegment)oldElement];
-            PlanarEdge[] newBoundaryEdges = Edges.Cast<PlanarEdge>()
+            HashSet<PlanarEdge> newBoundaryEdges = PlanarEdges
                 .Select(b => new PlanarEdge(
                     b.Node1,
                     b.Node2,
                     b.Boundary,
                     b.Elements.Select(getNewElementFromOld).ToArray()
                 ))
-                .ToArray();
-            return new PlanarDomain(Boundaries, Volumes, ThicknessSource, newNodes.ToArray(), newElements.ToArray(), newBoundaryEdges);
+                .ToHashSet();
+            return new PlanarDomain(Boundaries, Volumes, ThicknessSource, mapOldNodeToNewNode.Values.ToHashSet(), mapOldElementToNewElement.Values.ToHashSet(), newBoundaryEdges);
         }
 
         private BVH2D<PlanarSegment>? _ElementsBVHTree;
