@@ -106,7 +106,7 @@ namespace FiniteElementAnalysis.Results
             }
         }
         /*working but not ideal. averages from elements*/
-        
+        /*
         public void ApplyVolumeCurrentDensities(
             IMesh meshBeingAppliedTo,
             FieldDOFInfo fieldDOFInfo,
@@ -126,7 +126,7 @@ namespace FiniteElementAnalysis.Results
                 {
                     INode[] nodes = element.Nodes;
                     double conductivity = ((StaticCurrentVolume)element.VolumeBelongsTo!).Conductivity;
-                    double[] voltages = nodes.Select(n => _MapNodeIndexToResultValue[n.Identifier]).ToArray();
+                    double[] voltages = nodes.Select(n => _MapNodeIndexToResultValue[n.Index]).ToArray();
                     int targetNodeIndex = Array.IndexOf(nodes, thisNode);
                     for (int j = 0; j < nodes.Length; j++)
                     {
@@ -144,13 +144,13 @@ namespace FiniteElementAnalysis.Results
                 }
                 for (int k = 0; k < nSpatialDims; k++)
                     total[k] += totalForElements[k] / elementsContainingNode.Count();
-                int globalIndex = meshBeingAppliedTo.MapNodeIdentifierToGlobalIndex[thisNode.Identifier];
+                int globalIndex = meshBeingAppliedTo.MapNodeIndexToGlobalIndex[thisNode.Index];
                 averageR0 += total[0];
                 for (int k = 0; k < nSpatialDims; k++)
                     rhs[globalIndex * nSpatialDims + k] = total[k];
             }
             averageR0 = averageR0 / _ResultMesh.Nodes.Length;
-        }/*
+        }*/
         public void ApplyVolumeCurrentDensities(
         IMesh meshBeingAppliedTo,
         FieldDOFInfo fieldDOFInfo,
